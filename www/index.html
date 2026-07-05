@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Sharma House</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-touch-callout:none; -webkit-user-select:none; }
+  html,body {
+    width:100%; height:100%; overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif;
+    overscroll-behavior:none; touch-action:none; position:fixed;
+  }
+  #gameCanvas { position:fixed; top:0; left:0; width:100%; height:100%; display:block; touch-action:none; }
+
+  /* ---------- Title Screen ---------- */
+  #titleScreen {
+    position:fixed; inset:0; z-index:50;
+    background: radial-gradient(ellipse at center, #1a0505 0%, #050202 70%, #000 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#c9b8a8; text-align:center; padding:20px;
+  }
+  #titleScreen h1 {
+    font-family:'Noto Serif Devanagari', serif; font-weight:700;
+    font-size:clamp(28px,7vw,56px); color:#8a1414;
+    text-shadow: 0 0 18px rgba(200,20,20,0.55), 0 0 2px #000;
+    letter-spacing:2px; margin-bottom:6px;
+    animation: flicker 4s infinite;
+  }
+  @keyframes flicker {
+    0%,19%,21%,23%,80%,100% { opacity:1; }
+    20%,22%,79% { opacity:0.55; }
+  }
+  #titleScreen h2 {
+    font-family:'Noto Serif Devanagari', serif; font-size:clamp(16px,3.6vw,22px);
+    color:#7d6a5c; font-weight:500; margin-bottom:28px; letter-spacing:1px;
+  }
+  #titleScreen p.desc {
+    max-width:640px; font-size:14px; line-height:1.9; color:#a3948a; margin-bottom:26px;
+    font-family:'Noto Serif Devanagari', serif;
+  }
+  #startBtn {
+    padding:14px 46px; font-size:17px; letter-spacing:1px; cursor:pointer;
+    background:transparent; color:#c9b8a8; border:1px solid #6b1616;
+    font-family:'Poppins',sans-serif; font-weight:600;
+    transition: all .25s; text-transform:uppercase;
+  }
+  #startBtn:hover { background:#6b1616; color:#fff; box-shadow:0 0 22px rgba(180,20,20,0.6); }
+  #startBtn:disabled { opacity:0.45; cursor:default; border-color:#4a3a34; }
+  #startBtn:disabled:hover { background:transparent; color:#c9b8a8; box-shadow:none; }
+  #controlsHint { margin-top:26px; font-size:12px; color:#6a5a52; line-height:1.7; }
+
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; inset:0; z-index:20; pointer-events:none; opacity:0; transition:opacity 1s; }
+  #hud.visible { opacity:1; }
+
+  #objectiveBox {
+    position:fixed; top:18px; left:50%; transform:translateX(-50%);
+    max-width:90vw; text-align:center; padding:8px 20px;
+    font-family:'Noto Serif Devanagari', serif; font-size:15px; color:#d8c9bc;
+    background:rgba(10,5,5,0.45); border-left:2px solid #7a1616; border-right:2px solid #7a1616;
+    letter-spacing:0.5px;
+  }
+
+  #subtitleBox {
+    position:fixed; bottom:110px; left:50%; transform:translateX(-50%);
+    max-width:85vw; width:600px; text-align:center; padding:12px 18px;
+    font-family:'Noto Serif Devanagari', serif; font-size:16px; color:#f0e4d8;
+    background:rgba(5,2,2,0.6); border-radius:4px; line-height:1.6;
+    opacity:0; transition:opacity .5s;
+  }
+  #subtitleBox.show { opacity:1; }
+
+  #crosshair {
+    position:fixed; top:50%; left:50%; width:6px; height:6px; margin:-3px 0 0 -3px;
+    border-radius:50%; background:rgba(255,255,255,0.55);
+  }
+
+  #flashBtn {
+    position:fixed; bottom:24px; right:24px; width:64px; height:64px; border-radius:50%;
+    background:rgba(30,20,15,0.55); border:2px solid #6b5a48; color:#e8dcc8;
+    font-size:11px; display:flex; align-items:center; justify-content:center; text-align:center;
+    pointer-events:auto; cursor:pointer; line-height:1.2; z-index:30; touch-action:none;
+  }
+  #flashBtn.on { background:rgba(255,210,120,0.35); border-color:#ffd278; color:#fff; }
+
+  #actionBtn {
+    position:fixed; bottom:24px; right:100px; width:78px; height:78px; border-radius:50%;
+    background:rgba(90,15,15,0.55); border:2px solid #8a2020; color:#f0e0d8;
+    font-size:12px; display:flex; align-items:center; justify-content:center; text-align:center;
+    pointer-events:auto; cursor:pointer; opacity:0; transition:opacity .3s; padding:6px;
+    z-index:30; touch-action:none;
+  }
+  #actionBtn.show { opacity:1; pointer-events:auto; }
+  #actionBtn.hide { opacity:0; pointer-events:none; }
+
+  #joystickZone { position:fixed; bottom:0; left:0; width:45%; height:55%; z-index:15; pointer-events:auto; touch-action:none; }
+  #lookZone { position:fixed; bottom:0; right:0; width:55%; height:100%; z-index:14; pointer-events:auto; touch-action:none; }
+  #joyBase, #joyNub { position:fixed; border-radius:50%; display:none; z-index:16; pointer-events:none; }
+  #joyBase { width:110px; height:110px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.25); }
+  #joyNub { width:48px; height:48px; background:rgba(255,255,255,0.25); }
+
+  #barWrap {
+    position:fixed; bottom:200px; left:50%; transform:translateX(-50%);
+    width:280px; opacity:0; transition:opacity .3s;
+  }
+  #barWrap.show { opacity:1; }
+  #barWrap .label { font-size:12px; color:#d8c9bc; text-align:center; margin-bottom:4px; font-family:'Noto Serif Devanagari',serif;}
+  #barOuter { width:100%; height:14px; background:rgba(0,0,0,0.5); border:1px solid #6b5a48; border-radius:7px; overflow:hidden; }
+  #barInner { height:100%; width:0%; background:linear-gradient(90deg,#8a1414,#e05a3a); transition:width .15s; }
+
+  #inventory {
+    position:fixed; top:60px; right:18px; display:flex; flex-direction:column; gap:8px; opacity:0; transition:opacity .4s;
+  }
+  #inventory.show { opacity:1; }
+  .invItem {
+    width:44px; height:44px; border-radius:6px; background:rgba(20,10,10,0.55); border:1px solid #6b5a48;
+    display:flex; align-items:center; justify-content:center; font-size:20px; opacity:0.25; transition:opacity .3s;
+  }
+  .invItem.got { opacity:1; box-shadow:0 0 10px rgba(255,180,80,0.5); }
+
+  #flashOverlay { position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:40; }
+  #vignette {
+    position:fixed; inset:0; pointer-events:none; z-index:10;
+    box-shadow: inset 0 0 220px 60px rgba(0,0,0,0.85);
+  }
+  #blackout { position:fixed; inset:0; background:#000; opacity:0; pointer-events:none; z-index:45; transition:opacity 1.2s; }
+  #blackout.show { opacity:1; }
+
+  #endScreen {
+    position:fixed; inset:0; z-index:60; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background: radial-gradient(ellipse at center, #2a1a10 0%, #0a0603 80%);
+    color:#e8dcc8; text-align:center; padding:30px;
+  }
+  #endScreen h1 { font-family:'Noto Serif Devanagari',serif; font-size:clamp(30px,7vw,52px); color:#e8b878; margin-bottom:18px; }
+  #endScreen p { max-width:640px; font-family:'Noto Serif Devanagari',serif; font-size:15px; line-height:2; color:#cbb89e; margin-bottom:24px; }
+  #restartBtn { padding:12px 40px; background:transparent; border:1px solid #b8863c; color:#e8dcc8; font-size:15px; cursor:pointer; letter-spacing:1px; }
+  #restartBtn:hover { background:#b8863c; color:#0a0603; }
+
+  #mobileNotice { position:fixed; bottom:6px; left:50%; transform:translateX(-50%); font-size:10px; color:#665448; z-index:21; }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="titleScreen">
+  <h1>THE SHARMA HOUSE</h1>
+  <h2>शर्मा हाउस</h2>
+  <p class="desc">
+  एक पुराना घर, एक अधूरा सच, और एक तूफानी रात।<br>
+  रोहन एक नए शहर में किराए के घर में रहने आया है — बेखबर कि यह घर एक हत्या की गवाही अब भी सीने में दबाए बैठा है।
+  </p>
+  <button id="startBtn" disabled>लोड हो रहा है...</button>
+  <div id="controlsHint" id="hintDesktop">
+    WASD चलने के लिए • माउस देखने के लिए • F टॉर्च के लिए • E क्रिया के लिए
+  </div>
+</div>
+
+<div id="errorScreen" style="display:none; position:fixed; inset:0; z-index:70; background:#0a0505; color:#e8dcc8; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px; font-family:sans-serif;">
+  <h2 style="color:#e05a3a; margin-bottom:14px;">गेम लोड नहीं हो पाया</h2>
+  <p style="max-width:520px; line-height:1.7; margin-bottom:20px; font-size:14px;">
+    3D इंजन लोड करने में समस्या आई। कृपया अपना इंटरनेट कनेक्शन जांचें और फिर कोशिश करें।<br>
+    (Game engine failed to load — please check your internet connection and retry.)
+  </p>
+  <button id="retryBtn" style="padding:12px 36px; background:transparent; border:1px solid #e05a3a; color:#e8dcc8; font-size:15px; cursor:pointer;">दोबारा कोशिश करें / Retry</button>
+</div>
+
+<div id="hud">
+  <div id="objectiveBox"></div>
+  <div id="subtitleBox"></div>
+  <div id="crosshair"></div>
+  <div id="barWrap"><div class="label" id="barLabel"></div><div id="barOuter"><div id="barInner"></div></div></div>
+  <div id="inventory">
+    <div class="invItem" id="invKnife">🔪</div>
+    <div class="invItem" id="invPan">🍳</div>
+    <div class="invItem" id="invChili">🌶️</div>
+  </div>
+</div>
+
+<div id="joystickZone"></div>
+<div id="lookZone"></div>
+<div id="joyBase"></div><div id="joyNub"></div>
+<div id="flashBtn">🔦<br>टॉर्च</div>
+<div id="actionBtn">क्रिया</div>
+
+<div id="flashOverlay"></div>
+<div id="vignette"></div>
+<div id="blackout"></div>
+<div id="mobileNotice"></div>
+
+<div id="endScreen">
+  <h1>तूफ़ान थम गया</h1>
+  <p id="endText"></p>
+  <button id="restartBtn">फिर से खेलें</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+        onload="window._threeLoaded=true;" onerror="window._threeFailed=true;"></script>
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   THE SHARMA HOUSE — single-file Three.js horror game
+   ============================================================ */
+
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+document.getElementById('mobileNotice').textContent = isTouch ? 'टच नियंत्रण सक्रिय' : '';
+
+/* ---------- engine readiness / error handling ---------- */
+const startBtn = document.getElementById('startBtn');
+const errorScreen = document.getElementById('errorScreen');
+let engineReady = false;
+
+function showLoadError(){
+  document.getElementById('titleScreen').style.display = 'none';
+  errorScreen.style.display = 'flex';
+}
+document.getElementById('retryBtn').addEventListener('click', ()=>location.reload());
+
+function checkEngineReady(elapsed){
+  if (typeof THREE !== 'undefined'){
+    engineReady = true;
+    startBtn.disabled = false;
+    startBtn.textContent = 'प्रवेश करें ▸ ENTER';
+    return;
+  }
+  if (window._threeFailed){
+    showLoadError();
+    return;
+  }
+  if (elapsed > 15000){
+    showLoadError();
+    return;
+  }
+  setTimeout(()=>checkEngineReady(elapsed + 250), 250);
+}
+checkEngineReady(0);
+
+
+let scene, camera, renderer, clock;
+let flashlight, flashlightTarget;
+let ambientLight, hemiLight;
+let rainParticles;
+
+const player = {
+  pos: new THREE.Vector3(0, 1.65, -6),
+  yaw: 0, pitch: 0,
+  radius: 0.45,
+  canMove: true,
+  canLook: true,
+  flashlightOn: false
+};
+
+const keys = {};
+let pointerLocked = false;
+
+// ---------- collision boxes: {x1,x2,z1,z2} ----------
+let walls = [];
+let furniture = [];
+
+// ---------- world groups ----------
+let houseGroup, basementGroup;
+
+// ---------- gameplay state ----------
+let phase = 'TITLE';
+let phaseTimer = 0;
+let dialogQueue = [];
+let dialogTimer = 0;
+let currentDialogIndex = 0;
+
+let doorIntegrity = 100;
+let policeTimer = 46;
+let reinforceCooldown = 0;
+let ropeProgress = 0;
+let fridgeHold = 0;
+let fridgeMesh, fridgeTargetPos;
+let items = { knife:false, pan:false, chili:false };
+let pickupMeshes = [];
+let basementDoorMesh, windowMesh, frontDoorMesh, kitchenGapMesh;
+let explorePickCount = 0;
+
+const objectiveBox = document.getElementById('objectiveBox');
+const subtitleBox = document.getElementById('subtitleBox');
+const barWrap = document.getElementById('barWrap');
+const barInner = document.getElementById('barInner');
+const barLabel = document.getElementById('barLabel');
+const actionBtn = document.getElementById('actionBtn');
+const flashBtn = document.getElementById('flashBtn');
+const flashOverlay = document.getElementById('flashOverlay');
+const blackout = document.getElementById('blackout');
+const hud = document.getElementById('hud');
+
+function setObjective(txt){ objectiveBox.textContent = txt; }
+function showSubtitle(txt){
+  subtitleBox.textContent = txt;
+  subtitleBox.classList.add('show');
+}
+function hideSubtitle(){ subtitleBox.classList.remove('show'); }
+
+function queueDialog(lines, gapSeconds){
+  dialogQueue = lines.slice();
+  currentDialogIndex = 0;
+  dialogTimer = 0;
+  dialogFinished = false;
+  advanceDialog(gapSeconds || 3.2);
+}
+let dialogGap = 3.2;
+let dialogFinished = true;
+function advanceDialog(gap){
+  if (gap) dialogGap = gap;
+  if (currentDialogIndex < dialogQueue.length){
+    showSubtitle(dialogQueue[currentDialogIndex]);
+    currentDialogIndex++;
+    dialogTimer = dialogGap;
+  } else {
+    hideSubtitle();
+    if (!dialogFinished){
+      dialogFinished = true;
+      onDialogFinished();
+    }
+  }
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init(){
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x030201, 0.045);
+
+  camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 200);
+
+  renderer = new THREE.WebGLRenderer({
+    canvas: document.getElementById('gameCanvas'),
+    antialias: !isTouch,
+    powerPreference: 'high-performance',
+    failIfMajorPerformanceCaveat: false
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouch ? 1.75 : 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = false;
+
+  clock = new THREE.Clock();
+
+  hemiLight = new THREE.HemisphereLight(0x554433, 0x0a0806, 0.55);
+  scene.add(hemiLight);
+  ambientLight = new THREE.AmbientLight(0x554433, 0.35);
+  scene.add(ambientLight);
+
+  flashlight = new THREE.SpotLight(0xfff2d0, 0, 16, Math.PI/7, 0.4, 1.6);
+  flashlight.position.set(0,0,0);
+  camera.add(flashlight);
+  flashlightTarget = new THREE.Object3D();
+  flashlightTarget.position.set(0,0,-1);
+  camera.add(flashlightTarget);
+  flashlight.target = flashlightTarget;
+  scene.add(camera);
+
+  buildHouse();
+  buildBasement();
+  buildRain();
+
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', ()=>setTimeout(onResize, 300));
+  setupInput();
+
+  animate();
+}
+
+function onResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* ============================================================
+   WORLD BUILD
+   ============================================================ */
+function wallMat(color){ return new THREE.MeshStandardMaterial({ color: color||0x2b2420, roughness:0.95, metalness:0.02 }); }
+
+function addWall(x1,x2,z1,z2,h,color){
+  const w = Math.max(x2-x1, 0.3), d = Math.max(z2-z1, 0.3);
+  const geo = new THREE.BoxGeometry(w, h||4, d);
+  const mesh = new THREE.Mesh(geo, wallMat(color));
+  mesh.position.set((x1+x2)/2, (h||4)/2, (z1+z2)/2);
+  houseGroup.add(mesh);
+  walls.push({x1,x2,z1,z2});
+  return mesh;
+}
+function addFurniture(x1,x2,z1,z2,h,color,group,skipCollide){
+  const w = Math.max(x2-x1,0.2), d = Math.max(z2-z1,0.2);
+  const geo = new THREE.BoxGeometry(w,h,d);
+  const mesh = new THREE.Mesh(geo, wallMat(color));
+  mesh.position.set((x1+x2)/2, h/2, (z1+z2)/2);
+  (group||houseGroup).add(mesh);
+  if(!skipCollide) furniture.push({x1,x2,z1,z2});
+  return mesh;
+}
+
+function buildHouse(){
+  houseGroup = new THREE.Group();
+  scene.add(houseGroup);
+
+  // floor
+  const floorGeo = new THREE.PlaneGeometry(24,20);
+  const floorMat = new THREE.MeshStandardMaterial({ color:0x3a2f26, roughness:1 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI/2;
+  floor.position.set(0,0,0);
+  houseGroup.add(floor);
+
+  // ceiling (dark, to keep interior enclosed feeling)
+  const ceilGeo = new THREE.PlaneGeometry(24,20);
+  const ceilMat = new THREE.MeshStandardMaterial({ color:0x0c0a08, roughness:1 });
+  const ceil = new THREE.Mesh(ceilGeo, ceilMat);
+  ceil.rotation.x = Math.PI/2;
+  ceil.position.set(0,4,0);
+  houseGroup.add(ceil);
+
+  // outer walls (perimeter x:-11..11 z:-9..9)
+  addWall(-11.2,-10.8,-9,9,4.2,0x241d18); // west
+  addWall(10.8,11.2,-9,9,4.2,0x241d18);   // east
+  addWall(-11,11,8.8,9.2,4.2,0x241d18);   // south
+  // north wall with a door gap at x:-1..1
+  addWall(-11,-1,-9.2,-8.8,4.2,0x241d18);
+  addWall(1,11,-9.2,-8.8,4.2,0x241d18);
+
+  // dividing wall at z=0, corridor gap x:-6..6
+  addWall(-11,-6,-0.2,0.2,4.2,0x2c2119);
+  addWall(6,11,-0.2,0.2,4.2,0x2c2119);
+
+  // kitchen divider at x=3, door gap z:3..5
+  addWall(2.8,3.2,0,3,4.2,0x2c2119);
+  addWall(2.8,3.2,5,9,4.2,0x2c2119);
+
+  // front door (visual)
+  frontDoorMesh = addFurniture(-0.9,0.9,-9.15,-8.85,3.6,0x1a1310, houseGroup, true);
+
+  // living room furniture
+  addFurniture(-3,3,-7.4,-6.2,0.9,0x3a2418); // sofa
+  addFurniture(-1,1,-4.2,-3.2,0.75,0x2e2015); // table
+  const clock1 = addFurniture(-10.85,-10.6,3.6,4.4,0.9,0x1f1712, houseGroup, true);
+  clock1.position.y = 2.4;
+
+  // bedroom furniture
+  addFurniture(-10.2,-7.8,1,3.2,0.9,0x2a1e16); // bed
+  windowMesh = addFurniture(-11.15,-10.85,3.2,4.8,1.6, 0x0e2a33, houseGroup, true);
+  windowMesh.position.y = 2.2;
+
+  // corridor basement trapdoor (visual marker, flush on floor)
+  const bdGeo = new THREE.PlaneGeometry(1.6,1.6);
+  const bdMat = new THREE.MeshStandardMaterial({ color:0x0a0605, roughness:1, emissive:0x110303, emissiveIntensity:0.3 });
+  basementDoorMesh = new THREE.Mesh(bdGeo, bdMat);
+  basementDoorMesh.rotation.x = -Math.PI/2;
+  basementDoorMesh.position.set(0, 0.02, 2);
+  houseGroup.add(basementDoorMesh);
+
+  // kitchen furniture
+  fridgeTargetPos = new THREE.Vector3(3, 1.05, 4);
+  fridgeMesh = addFurniture(8.6,9.6,6.4,7.4,2.1,0x1c2622, houseGroup, true);
+  furniture.push({x1:8.6,x2:9.6,z1:6.4,z2:7.4, ref:'fridge'});
+  addFurniture(5,7,7.5,8.6,0.9,0x2c2119); // counter
+
+  // dim flickering practical lights
+  const l1 = new THREE.PointLight(0xffbb77, 0.6, 10);
+  l1.position.set(0,3.6,-4); houseGroup.add(l1);
+  const l2 = new THREE.PointLight(0xffbb77, 0.5, 9);
+  l2.position.set(-8,3.6,3); houseGroup.add(l2);
+  const l3 = new THREE.PointLight(0xffbb77, 0.5, 9);
+  l3.position.set(7,3.6,4); houseGroup.add(l3);
+  window._practicalLights = [l1,l2,l3];
+}
+
+function buildBasement(){
+  basementGroup = new THREE.Group();
+  basementGroup.position.set(0,-6,110);
+  scene.add(basementGroup);
+
+  const floorGeo = new THREE.PlaneGeometry(8,8);
+  const floorMat = new THREE.MeshStandardMaterial({ color:0x1a1410, roughness:1 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI/2;
+  basementGroup.add(floor);
+
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(8,8), new THREE.MeshStandardMaterial({color:0x050403}));
+  ceil.rotation.x = Math.PI/2; ceil.position.y = 2.6;
+  basementGroup.add(ceil);
+
+  function bw(x1,x2,z1,z2){
+    const w=x2-x1,d=z2-z1;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(w,0.3),2.6,Math.max(d,0.3)), new THREE.MeshStandardMaterial({color:0x14100c}));
+    m.position.set((x1+x2)/2,1.3,(z1+z2)/2);
+    basementGroup.add(m);
+  }
+  bw(-4.2,-3.8,-4,4); bw(3.8,4.2,-4,4); bw(-4,4,-4.2,-3.8); bw(-4,4,3.8,4.2);
+
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.9,0.8), new THREE.MeshStandardMaterial({color:0x2a1e14}));
+  chest.position.set(1.5,0.45,-1.5);
+  basementGroup.add(chest);
+
+  const dim = new THREE.PointLight(0x552211, 0.4, 6);
+  dim.position.set(0,2,0);
+  basementGroup.add(dim);
+}
+
+function buildRain(){
+  const count = 900;
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(count*3);
+  for (let i=0;i<count;i++){
+    positions[i*3] = (Math.random()-0.5)*24;
+    positions[i*3+1] = Math.random()*6;
+    positions[i*3+2] = (Math.random()-0.5)*20;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  const mat = new THREE.PointsMaterial({ color:0x99aacc, size:0.03, transparent:true, opacity:0.0 });
+  rainParticles = new THREE.Points(geo, mat);
+  scene.add(rainParticles);
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+let joyActive = false, joyStart = {x:0,y:0}, joyVec = {x:0,y:0};
+let lookActive = false, lookLast = {x:0,y:0};
+
+function setupInput(){
+  window.addEventListener('keydown', e=>{ keys[e.code]=true;
+    if (e.code==='KeyF') toggleFlashlight();
+    if (e.code==='KeyE') onActionPress();
+  });
+  window.addEventListener('keyup', e=>{ keys[e.code]=false; if(e.code==='KeyE') onActionRelease(); });
+
+  const canvas = document.getElementById('gameCanvas');
+  canvas.addEventListener('click', ()=>{
+    if (!isTouch && phase !== 'TITLE') canvas.requestPointerLock();
+  });
+  document.addEventListener('pointerlockchange', ()=>{ pointerLocked = document.pointerLockElement === canvas; });
+  document.addEventListener('mousemove', e=>{
+    if (!pointerLocked || !player.canLook) return;
+    player.yaw -= e.movementX * 0.0022;
+    player.pitch -= e.movementY * 0.0022;
+    player.pitch = Math.max(-1.1, Math.min(1.1, player.pitch));
+  });
+
+  flashBtn.addEventListener('click', toggleFlashlight);
+  actionBtn.addEventListener('mousedown', onActionPress);
+  actionBtn.addEventListener('mouseup', onActionRelease);
+  actionBtn.addEventListener('touchstart', e=>{ e.preventDefault(); onActionPress(); }, {passive:false});
+  actionBtn.addEventListener('touchend', e=>{ e.preventDefault(); onActionRelease(); }, {passive:false});
+
+  // touch joystick
+  const joyZone = document.getElementById('joystickZone');
+  const joyBase = document.getElementById('joyBase');
+  const joyNub = document.getElementById('joyNub');
+  joyZone.addEventListener('touchstart', e=>{
+    const t = e.changedTouches[0];
+    joyActive = true; joyStart.x = t.clientX; joyStart.y = t.clientY;
+    joyBase.style.left = (t.clientX-55)+'px'; joyBase.style.top = (t.clientY-55)+'px';
+    joyBase.style.display='block';
+    joyNub.style.left = (t.clientX-24)+'px'; joyNub.style.top = (t.clientY-24)+'px';
+    joyNub.style.display='block';
+  }, {passive:true});
+  joyZone.addEventListener('touchmove', e=>{
+    if (!joyActive) return;
+    const t = e.changedTouches[0];
+    let dx = t.clientX - joyStart.x, dy = t.clientY - joyStart.y;
+    const max = 55;
+    const len = Math.hypot(dx,dy);
+    if (len>max){ dx = dx/len*max; dy = dy/len*max; }
+    joyVec.x = dx/max; joyVec.y = dy/max;
+    joyNub.style.left = (joyStart.x+dx-24)+'px'; joyNub.style.top = (joyStart.y+dy-24)+'px';
+  }, {passive:true});
+  joyZone.addEventListener('touchend', ()=>{
+    joyActive=false; joyVec.x=0; joyVec.y=0;
+    joyBase.style.display='none'; joyNub.style.display='none';
+  }, {passive:true});
+
+  // touch look
+  const lookZone = document.getElementById('lookZone');
+  lookZone.addEventListener('touchstart', e=>{
+    const t = e.changedTouches[0];
+    lookActive = true; lookLast.x = t.clientX; lookLast.y = t.clientY;
+  }, {passive:true});
+  lookZone.addEventListener('touchmove', e=>{
+    if (!lookActive || !player.canLook) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - lookLast.x, dy = t.clientY - lookLast.y;
+    lookLast.x = t.clientX; lookLast.y = t.clientY;
+    player.yaw -= dx * 0.0035;
+    player.pitch -= dy * 0.0035;
+    player.pitch = Math.max(-1.1, Math.min(1.1, player.pitch));
+  }, {passive:true});
+  lookZone.addEventListener('touchend', ()=>{ lookActive=false; }, {passive:true});
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('restartBtn').addEventListener('click', ()=>location.reload());
+}
+
+let actionHeld = false;
+function onActionPress(){
+  actionHeld = true;
+  if (phase === 'RUN_TO_BASEMENT') tryHideInBasement();
+  if (phase === 'CAUGHT_QTE') { ropeProgress += 7; }
+}
+function onActionRelease(){ actionHeld = false; }
+
+function toggleFlashlight(){
+  if (phase === 'TITLE') return;
+  player.flashlightOn = !player.flashlightOn;
+  flashlight.intensity = player.flashlightOn ? 2.4 : 0;
+  flashBtn.classList.toggle('on', player.flashlightOn);
+}
+
+/* ============================================================
+   GAME START / PHASES
+   ============================================================ */
+function startGame(){
+  if (!engineReady){ return; }
+  try {
+    document.getElementById('titleScreen').style.display = 'none';
+    hud.classList.add('visible');
+    init();
+    setPhase('EXPLORE');
+  } catch (err){
+    console.error('Failed to start game:', err);
+    document.getElementById('titleScreen').style.display = 'none';
+    hud.classList.remove('visible');
+    document.getElementById('errorScreen').querySelector('h2').textContent = 'यह डिवाइस 3D ग्राफ़िक्स सपोर्ट नहीं करता';
+    document.getElementById('errorScreen').querySelector('p').innerHTML =
+      'यह डिवाइस WebGL सपोर्ट नहीं करता या ग्राफ़िक्स ड्राइवर में समस्या है।<br>(This device does not support WebGL, or a graphics driver error occurred.)';
+    document.getElementById('errorScreen').style.display = 'flex';
+  }
+}
+
+function setPhase(p){
+  phase = p;
+  phaseTimer = 0;
+
+  switch(p){
+    case 'EXPLORE':
+      player.canMove = true; player.canLook = true;
+      setObjective('घर में घूमें और नई ज़िंदगी में ढलें...');
+      actionBtn.classList.remove('show');
+      barWrap.classList.remove('show');
+      break;
+
+    case 'STORM_START':
+      player.canMove = true; player.canLook = true;
+      setObjective('अचानक बिजली चली गई...');
+      hemiLight.intensity = 0.05; ambientLight.intensity = 0.03;
+      rainParticles.material.opacity = 0.55;
+      window._practicalLights.forEach(l=>l.intensity=0);
+      break;
+
+    case 'KNOCK':
+      player.canMove = false;
+      queueDialog([
+        'ठक! ठक! ठक! — मुख्य दरवाज़े पर दस्तक।',
+        '"कौन है?"',
+        '"पुलिस! दरवाज़ा खोलो। हमारी जीप खराब हो गई है।"',
+        '"लेकिन यहाँ कोई सिग्नल नहीं है, मेरा फ़ोन भी काम नहीं कर रहा।"',
+        '"अरे, हमें अंदर तो आने दो!"',
+        '"माफ़ कीजिये, लेकिन मैं आपको अंदर नहीं आने दे सकता।"',
+        'कदमों की आवाज़ धीरे-धीरे दूर जाने लगी...'
+      ], 3.4);
+      setObjective('...');
+      break;
+
+    case 'GO_TO_WINDOW':
+      player.canMove = true;
+      setObjective('खिड़की से बाहर झाँको (बेडरूम की खिड़की के पास जाओ)');
+      break;
+
+    case 'SEE_INTRUDERS':
+      player.canMove = false;
+      queueDialog([
+        'बिजली की चमक में — तीन लोग पाइप के सहारे ऊपर चढ़ रहे हैं!',
+        'ये वही लोग थे जो दरवाज़े पर आए थे। ये पुलिस नहीं हैं।'
+      ], 3.2);
+      break;
+
+    case 'RUN_TO_BASEMENT':
+      player.canMove = true;
+      setObjective('भागो! बेसमेंट के दरवाज़े के पास जाओ और छुप जाओ (गलियारे में, फर्श पर)');
+      actionBtn.textContent = 'छुपो';
+      actionBtn.classList.add('show');
+      break;
+
+    case 'HIDING':
+      player.canMove = false; player.canLook = true;
+      camera.position.set(1.2, 1.2, -1.5);
+      player.pos.set(1.2, 1.2, -1.5);
+      currentGroupOffset = basementGroup.position;
+      actionBtn.classList.remove('show');
+      setObjective('अंधेरे में, साँस रोके, चुपचाप छिपे रहो...');
+      queueDialog([
+        '"जल्दी करो! उस बुड्ढे शर्मा की वजह से हमारा सच सामने आ जाएगा अगर वो डायरी मिल गई।"',
+        '"लेकिन सरदार, उसने हमें क़त्ल करते हुए कैसे देखा?"',
+        '"तू अपने काम पर ध्यान दे! पहले वो डायरी ढूंढो! इसी घर में कहीं है।"',
+        'कदमों की आवाज़ें ऊपर से नीचे की ओर बढ़ रही हैं...',
+        '"यहाँ भी देख लेते हैं।"'
+      ], 3.6);
+      break;
+
+    case 'CAUGHT':
+      player.canMove = false;
+      blackout.classList.add('show');
+      setObjective('');
+      hideSubtitle();
+      setTimeout(()=>{
+        showSubtitle('उन्होंने रोहन को ढूंढ निकाला और कुर्सी से बाँध दिया। "बोल! डायरी कहाँ है?"');
+        setTimeout(()=>{
+          showSubtitle('रोहन ने चाल चली: "वो पुरानी दादाजी की घड़ी के पीछे है!" — तीनों घड़ी की ओर लपके।');
+          setTimeout(()=>{ blackout.classList.remove('show'); setPhase('CAUGHT_QTE'); }, 3200);
+        }, 3200);
+      }, 1400);
+      break;
+
+    case 'CAUGHT_QTE':
+      ropeProgress = 0;
+      setObjective('ढीली रस्सी खोलो! तेज़ी से E दबाओ (या क्रिया बटन दबाते रहो)');
+      barWrap.classList.add('show');
+      barLabel.textContent = 'रस्सी खोलो';
+      actionBtn.textContent = 'खींचो';
+      actionBtn.classList.add('show');
+      break;
+
+    case 'RUN_TO_KITCHEN':
+      player.canMove = true; player.canLook = true;
+      currentGroupOffset = new THREE.Vector3(0,0,0);
+      player.pos.set(-4, 1.65, -5);
+      barWrap.classList.remove('show');
+      actionBtn.classList.remove('show');
+      setObjective('मौका मिला! रसोई की तरफ़ भागो!');
+      break;
+
+    case 'BARRICADE_ENTER':
+      player.canMove = false;
+      setObjective('');
+      showSubtitle('रोहन ने रसोई का दरवाज़ा बंद किया और सिटकनी चढ़ा दी।');
+      setTimeout(()=>{
+        hideSubtitle();
+        setPhase('BARRICADE');
+      }, 2600);
+      break;
+
+    case 'BARRICADE':
+      player.canMove = true;
+      spawnKitchenItems();
+      setObjective('फ्रिज को दरवाज़े की तरफ धकेलो — पास जाकर क्रिया बटन दबाए रखो');
+      actionBtn.textContent = 'धकेलो';
+      actionBtn.classList.add('show');
+      break;
+
+    case 'COLLECT':
+      setObjective('हथियार और मसाला इकट्ठा करो — चाकू, तवा, मिर्च पाउडर');
+      actionBtn.classList.remove('show');
+      barWrap.classList.remove('show');
+      break;
+
+    case 'DEFENSE':
+      player.canMove = true;
+      doorIntegrity = 100; policeTimer = 46; reinforceCooldown = 0;
+      barWrap.classList.add('show');
+      barLabel.textContent = 'दरवाज़ा';
+      actionBtn.textContent = 'मजबूत करो';
+      actionBtn.classList.add('show');
+      showSubtitle('रोहन ने 100 नंबर डायल किया — "पुलिस टीम जल्द पहुँच रही है!"');
+      setTimeout(hideSubtitle, 3500);
+      setObjective('दरवाज़ा टूटने से बचाओ — पुलिस के आने तक टिके रहो');
+      break;
+
+    case 'WIN':
+      player.canMove = false;
+      barWrap.classList.remove('show');
+      actionBtn.classList.remove('show');
+      hemiLight.intensity = 1.1; ambientLight.intensity = 0.9;
+      scene.fog.color.set(0xffb37a);
+      rainParticles.material.opacity = 0;
+      setObjective('');
+      showSubtitle('दूर से पुलिस का सायरन सुनाई दिया... "हथियार डाल दो! पुलिस ने घेर लिया है!"');
+      setTimeout(()=>{
+        showEndScreen();
+      }, 4200);
+      break;
+  }
+}
+
+let currentGroupOffset = new THREE.Vector3(0,0,0);
+
+function tryHideInBasement(){
+  const dx = player.pos.x - basementDoorMesh.position.x;
+  const dz = player.pos.z - basementDoorMesh.position.z;
+  if (Math.sqrt(dx*dx+dz*dz) < 1.6){
+    setPhase('HIDING');
+  }
+}
+
+function spawnKitchenItems(){
+  if (pickupMeshes.length) return;
+  const defs = [
+    {key:'knife', pos:[7.4,1.0,2.4], color:0xcccccc, emoji:'🔪'},
+    {key:'pan', pos:[5.4,1.0,7.6], color:0x555555, emoji:'🍳'},
+    {key:'chili', pos:[4.2,1.0,5.4], color:0xaa2211, emoji:'🌶️'}
+  ];
+  defs.forEach(d=>{
+    const geo = new THREE.SphereGeometry(0.22,10,10);
+    const mat = new THREE.MeshStandardMaterial({ color:d.color, emissive:d.color, emissiveIntensity:0.35 });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(d.pos[0], d.pos[1], d.pos[2]);
+    houseGroup.add(m);
+    pickupMeshes.push({key:d.key, mesh:m});
+  });
+}
+
+function checkPickups(){
+  for (let i = pickupMeshes.length-1; i>=0; i--){
+    const p = pickupMeshes[i];
+    const dx = player.pos.x - p.mesh.position.x, dz = player.pos.z - p.mesh.position.z;
+    if (Math.sqrt(dx*dx+dz*dz) < 1.1){
+      items[p.key] = true;
+      document.getElementById('inv'+p.key.charAt(0).toUpperCase()+p.key.slice(1)).classList.add('got');
+      houseGroup.remove(p.mesh);
+      pickupMeshes.splice(i,1);
+      document.getElementById('inventory').classList.add('show');
+    }
+  }
+  if (phase==='COLLECT' && items.knife && items.pan && items.chili){
+    setPhase('DEFENSE');
+  }
+}
+
+function showEndScreen(){
+  document.getElementById('endScreen').style.display = 'flex';
+  document.getElementById('endText').innerHTML =
+    'तूफ़ान थम गया था, आसमान साफ़ था। तीनों अपराधी पकड़े जा चुके थे। ' +
+    'पुलिस को दीवार-घड़ी के पीछे बने गुप्त लॉकर से श्री शर्मा की डायरी और बाकी सबूत मिल गए।<br><br>' +
+    'रोहन बालकनी में खड़ा, उगते सूरज को देख रहा था। रात का खौफ धुल चुका था। ' +
+    'वह उस रात सिर्फ ज़िंदा नहीं बचा था — वह जीत गया था।';
+}
+
+/* ============================================================
+   MOVEMENT & COLLISION
+   ============================================================ */
+function resolveCollision(pos){
+  const all = walls.concat(furniture);
+  for (const b of all){
+    const cx = Math.max(b.x1, Math.min(pos.x, b.x2));
+    const cz = Math.max(b.z1, Math.min(pos.z, b.z2));
+    const dx = pos.x - cx, dz = pos.z - cz;
+    const distSq = dx*dx + dz*dz;
+    const r = player.radius;
+    if (distSq < r*r){
+      const dist = Math.sqrt(distSq) || 0.0001;
+      const overlap = r - dist;
+      pos.x += (dx/dist)*overlap;
+      pos.z += (dz/dist)*overlap;
+    }
+  }
+}
+
+function updateMovement(dt){
+  if (!player.canMove) return;
+  let mx = 0, mz = 0;
+  if (keys['KeyW']||keys['ArrowUp']) mz -= 1;
+  if (keys['KeyS']||keys['ArrowDown']) mz += 1;
+  if (keys['KeyA']||keys['ArrowLeft']) mx -= 1;
+  if (keys['KeyD']||keys['ArrowRight']) mx += 1;
+  if (isTouch){ mx += joyVec.x; mz += joyVec.y; }
+
+  const len = Math.hypot(mx,mz);
+  if (len > 0.001){
+    mx/=len; mz/=len;
+    const speed = 3.4;
+    const sinY = Math.sin(player.yaw), cosY = Math.cos(player.yaw);
+    const forwardX = -sinY, forwardZ = -cosY;
+    const rightX = cosY, rightZ = -sinY;
+    const moveX = (forwardX*-mz + rightX*mx) * speed * dt;
+    const moveZ = (forwardZ*-mz + rightZ*mx) * speed * dt;
+    player.pos.x += moveX;
+    player.pos.z += moveZ;
+    resolveCollision(player.pos);
+  }
+}
+
+/* ============================================================
+   ZONE CHECKS PER PHASE
+   ============================================================ */
+function checkZones(dt){
+  if (phase === 'GO_TO_WINDOW'){
+    const dx = player.pos.x - windowMesh.position.x, dz = player.pos.z - windowMesh.position.z;
+    if (Math.sqrt(dx*dx+dz*dz) < 2.6) setPhase('SEE_INTRUDERS');
+  }
+  if (phase === 'RUN_TO_KITCHEN'){
+    if (player.pos.x > 3.2 && player.pos.z > 0.2 && player.pos.z < 8.8) setPhase('BARRICADE_ENTER');
+  }
+  if (phase === 'BARRICADE'){
+    const dx = player.pos.x - fridgeMesh.position.x, dz = player.pos.z - fridgeMesh.position.z;
+    if (Math.sqrt(dx*dx+dz*dz) < 2.2 && actionHeld){
+      fridgeHold += dt;
+      barWrap.classList.add('show'); barLabel.textContent = 'फ्रिज धकेल रहे हो...';
+      barInner.style.width = Math.min(100, fridgeHold/2.6*100) + '%';
+      if (fridgeHold >= 2.6){
+        animateFridgeMove();
+        setPhase('COLLECT');
+      }
+    } else {
+      barWrap.classList.remove('show');
+      fridgeHold = Math.max(0, fridgeHold - dt*1.5);
+    }
+  }
+  if (phase === 'DEFENSE'){
+    doorIntegrity -= dt * 2.3;
+    if (doorIntegrity < 15) doorIntegrity = 15; // soft floor, keeps game winnable
+    policeTimer -= dt;
+    reinforceCooldown = Math.max(0, reinforceCooldown - dt);
+    if (actionHeld && reinforceCooldown <= 0){
+      doorIntegrity = Math.min(100, doorIntegrity + 9);
+      reinforceCooldown = 0.9;
+    }
+    barInner.style.width = doorIntegrity + '%';
+    barLabel.textContent = 'दरवाज़ा — पुलिस ' + Math.max(0,Math.ceil(policeTimer)) + 's';
+    if (policeTimer <= 0) setPhase('WIN');
+  }
+}
+
+function animateFridgeMove(){
+  const start = fridgeMesh.position.clone();
+  const target = fridgeTargetPos.clone();
+  let t = 0;
+  const dur = 1.6;
+  furniture = furniture.filter(f=>f.ref!=='fridge');
+  function step(){
+    t += 1/60;
+    const p = Math.min(1, t/dur);
+    fridgeMesh.position.lerpVectors(start, target, p);
+    if (p < 1) requestAnimationFrame(step);
+    else furniture.push({x1:target.x-0.7,x2:target.x+0.7,z1:target.z-0.7,z2:target.z+0.7, ref:'fridge'});
+  }
+  step();
+}
+
+/* ============================================================
+   AMBIENT EFFECTS
+   ============================================================ */
+let thunderTimer = 2 + Math.random()*3;
+function updateAmbient(dt){
+  if (phase === 'STORM_START' || phase === 'KNOCK' || phase === 'GO_TO_WINDOW' ||
+      phase === 'SEE_INTRUDERS' || phase === 'RUN_TO_BASEMENT' || phase === 'DEFENSE' ||
+      phase === 'BARRICADE' || phase === 'COLLECT' || phase === 'RUN_TO_KITCHEN' || phase === 'BARRICADE_ENTER'){
+    thunderTimer -= dt;
+    if (thunderTimer <= 0){
+      flashOverlay.style.transition = 'opacity 0.08s';
+      flashOverlay.style.opacity = 0.5 + Math.random()*0.3;
+      setTimeout(()=>{ flashOverlay.style.opacity = 0; }, 90);
+      thunderTimer = 3 + Math.random()*5;
+    }
+  }
+  if (rainParticles && (phase!=='EXPLORE' && phase!=='TITLE')){
+    const pos = rainParticles.geometry.attributes.position;
+    for (let i=0;i<pos.count;i++){
+      let y = pos.getY(i) - dt*9;
+      if (y < 0) y = 6;
+      pos.setY(i,y);
+    }
+    pos.needsUpdate = true;
+    rainParticles.position.set(player.pos.x, 0, player.pos.z);
+  }
+}
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  updateMovement(dt);
+  checkZones(dt);
+  checkPickups();
+  updateAmbient(dt);
+
+  // dialog auto-advance
+  if (dialogQueue.length && !dialogFinished){
+    dialogTimer -= dt;
+    if (dialogTimer <= 0){
+      advanceDialog();
+    }
+  }
+
+  // phase timers
+  phaseTimer += dt;
+  if (phase === 'STORM_START' && phaseTimer > 4.5) setPhase('KNOCK');
+  if (phase === 'EXPLORE' && phaseTimer > 22) setPhase('STORM_START');
+  if (phase === 'HIDING' && phaseTimer > 17 && currentDialogIndex >= dialogQueue.length) setPhase('CAUGHT');
+  if (phase === 'CAUGHT_QTE'){
+    ropeProgress = Math.max(0, ropeProgress - dt*3.4);
+    barInner.style.width = Math.min(100,ropeProgress) + '%';
+    if (ropeProgress >= 100) setPhase('RUN_TO_KITCHEN');
+  }
+
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+  const gp = currentGroupOffset || new THREE.Vector3(0,0,0);
+  camera.position.set(player.pos.x + gp.x, player.pos.y + gp.y, player.pos.z + gp.z);
+
+  window._practicalLights && window._practicalLights.forEach(l=>{
+    if (phase==='EXPLORE') l.intensity = 0.55 + Math.sin(Date.now()*0.004 + l.position.x)*0.05;
+  });
+
+  renderer.render(scene, camera);
+}
+
+function onDialogFinished(){
+  if (phase === 'KNOCK') setPhase('GO_TO_WINDOW');
+  else if (phase === 'SEE_INTRUDERS') setPhase('RUN_TO_BASEMENT');
+  else if (phase === 'HIDING' && phaseTimer > 14) setPhase('CAUGHT');
+}
+
+})();
+</script>
+</body>
+</html>
