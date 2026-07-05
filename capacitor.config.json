@@ -1,0 +1,11 @@
+{
+  "appId": "com.jack.sharmahouse",
+  "appName": "The Sharma House",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": { "allowMixedContent": true },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["cdnjs.cloudflare.com"]
+  }
+}
