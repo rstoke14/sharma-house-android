@@ -3,620 +3,1473 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>First Floor — 3D Walls Plan</title>
+<title>Old House - First Floor</title>
 <style>
-  html, body { margin:0; padding:0; overflow:hidden; background:#12100e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
-  #canvas-wrap { position:fixed; inset:0; touch-action:none; }
-  canvas { display:block; touch-action:none; }
+  html, body { margin:0; padding:0; overflow:hidden; width:100%; height:100%; background:#000; font-family: Arial, Helvetica, sans-serif; }
+  #canvasContainer { position:fixed; top:0; left:0; width:100%; height:100%; }
+  canvas { display:block; outline:none; }
 
-  #legend {
-    position:fixed; top:10px; left:10px; max-width: 240px;
-    background: rgba(18,16,14,0.86);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    padding: 12px 14px;
-    color: #ece7de;
-    backdrop-filter: blur(4px);
-    transition: transform 0.25s ease, opacity 0.25s ease;
-    max-height: 78vh;
-    overflow-y: auto;
-    z-index: 5;
-  }
-  #legend.hidden { transform: translateX(-110%); opacity:0; }
-  #legend h1 {
-    font-size: 13px; letter-spacing: 1.5px; margin: 0 0 2px 0; color:#f4efe4; font-weight:700;
-  }
-  #legend h2 { font-size: 11px; letter-spacing: 1px; margin:0 0 10px 0; color:#c9bfa8; font-weight:500;}
-  .row { display:flex; gap:8px; margin-bottom:8px; align-items:flex-start; }
-  .num {
-    flex: 0 0 auto; width:18px; height:18px; border-radius:50%;
-    background:#ece7de; color:#1b1712; font-size:11px; font-weight:700;
-    display:flex; align-items:center; justify-content:center; margin-top:1px;
-  }
-  .row .txt b { display:block; font-size:12px; color:#f4efe4; }
-  .row .txt span { display:block; font-size:10.5px; color:#a89f8d; line-height:1.3; }
-
-  #controlsHint {
-    position:fixed; bottom:10px; left:0; right:0; text-align:center;
-    color:#cfc7b6; font-size:11px; opacity:0.65; z-index:5; pointer-events:none;
-    letter-spacing:0.3px;
+  /* Crosshair */
+  #crosshair {
+    position:fixed; top:50%; left:50%; width:6px; height:6px;
+    margin:-3px 0 0 -3px; border-radius:50%;
+    background:rgba(255,255,255,0.55);
+    box-shadow:0 0 2px rgba(0,0,0,0.8);
+    pointer-events:none; z-index:20;
   }
 
-  #toolbar {
-    position:fixed; top:10px; right:10px; display:flex; flex-direction:column; gap:8px; z-index:6;
+  /* Desktop instructions */
+  #blocker {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center;
+    z-index:50; color:#eee; text-align:center; cursor:pointer;
   }
-  .btn {
-    background: rgba(18,16,14,0.86); border:1px solid rgba(255,255,255,0.15);
-    color:#ece7de; font-size:11px; letter-spacing:0.4px; padding:9px 11px; border-radius:10px;
-    -webkit-tap-highlight-color: transparent; user-select:none;
-  }
-  .btn:active { background: rgba(255,255,255,0.15); }
+  #blocker .panel { max-width:520px; padding:30px; }
+  #blocker h1 { font-weight:300; letter-spacing:2px; margin-bottom:10px; }
+  #blocker p { color:#bbb; line-height:1.6; font-size:14px; }
+  #blocker .key { display:inline-block; background:#333; border:1px solid #555; border-radius:4px; padding:2px 8px; margin:0 3px; font-size:12px; }
 
-  #loading {
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:#12100e; color:#cfc7b6; font-size:13px; letter-spacing:1px; z-index:20;
+  /* Mobile controls */
+  #mobileControls { position:fixed; inset:0; z-index:15; display:none; pointer-events:none; }
+  .joyBase {
+    position:absolute; left:28px; bottom:28px; width:120px; height:120px;
+    border-radius:50%; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.25);
+    pointer-events:auto; touch-action:none;
+  }
+  .joyStick {
+    position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%;
+    background:rgba(255,255,255,0.3); border:2px solid rgba(255,255,255,0.4);
+  }
+  .lookArea {
+    position:absolute; right:0; top:0; width:55%; height:100%; pointer-events:auto; touch-action:none;
+  }
+  #jumpBtn, #sprintBtn {
+    position:absolute; bottom:34px; width:70px; height:70px; border-radius:50%;
+    background:rgba(255,255,255,0.12); border:2px solid rgba(255,255,255,0.3);
+    color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center;
+    pointer-events:auto; touch-action:none; user-select:none;
+  }
+  #jumpBtn { right:28px; }
+  #sprintBtn { right:112px; bottom:118px; width:60px; height:60px; }
+
+  #fpsCounter {
+    position:fixed; top:8px; left:8px; color:rgba(255,255,255,0.4); font-size:11px; z-index:20; font-family:monospace;
   }
 
-  .joy-base{
-    position:fixed; width:100px; height:100px; border-radius:50%;
-    border:2px solid rgba(255,255,255,0.35); background:rgba(255,255,255,0.07);
-    display:none; z-index:8; touch-action:none;
-  }
-  .joy-knob{
-    position:fixed; width:46px; height:46px; border-radius:50%;
-    background:rgba(255,255,255,0.38); display:none; z-index:9;
-    touch-action:none; pointer-events:none;
-  }
-  #crosshair{
-    position:fixed; top:50%; left:50%; width:8px; height:8px; margin:-4px 0 0 -4px;
-    border-radius:50%; background:rgba(255,255,255,0.85); display:none; z-index:7; pointer-events:none;
-    box-shadow: 0 0 4px rgba(0,0,0,0.6);
+  @media (pointer:coarse) {
+    #mobileControls { display:block; }
+    #blocker .desktopOnly { display:none; }
   }
 </style>
 </head>
 <body>
 
-<div id="loading">LOADING 3D MODEL…</div>
-<div id="canvas-wrap"></div>
-
-<div id="legend">
-  <h1>FIRST FLOOR</h1>
-  <h2>3D WALLS-ONLY MODEL</h2>
-  <div class="row"><div class="num">1</div><div class="txt"><b>Front Porch</b><span>Main entrance to the house</span></div></div>
-  <div class="row"><div class="num">2</div><div class="txt"><b>Living Room</b><span>Family sitting area</span></div></div>
-  <div class="row"><div class="num">3</div><div class="txt"><b>Study Room</b><span>Mr. Sharma's study</span></div></div>
-  <div class="row"><div class="num">4</div><div class="txt"><b>Main Hall</b><span>Connects all rooms, staircase to 2nd floor</span></div></div>
-  <div class="row"><div class="num">5</div><div class="txt"><b>Guest WC</b><span>Common washroom</span></div></div>
-  <div class="row"><div class="num">6</div><div class="txt"><b>Dining Area</b><span>Dining space</span></div></div>
-  <div class="row"><div class="num">7</div><div class="txt"><b>Kitchen</b><span>Kitchen / survival room</span></div></div>
-  <div class="row"><div class="num">8</div><div class="txt"><b>Store Room</b><span>Hidden basement entrance</span></div></div>
-</div>
-
-<div id="toolbar">
-  <div class="btn" id="btnWalk">Walk</div>
-  <div class="btn" id="btnLegend">Legend</div>
-  <div class="btn" id="btnRoof">Roof</div>
-  <div class="btn" id="btnTop">Top View</div>
-  <div class="btn" id="btnReset">Reset</div>
-</div>
-
-<div id="controlsHint">Drag to rotate · Pinch to zoom · Two fingers to pan</div>
-<div id="joyBase" class="joy-base"></div>
-<div id="joyKnob" class="joy-knob"></div>
+<div id="canvasContainer"></div>
 <div id="crosshair"></div>
+<div id="fpsCounter"></div>
+
+<div id="blocker">
+  <div class="panel">
+    <h1>THE HOUSE</h1>
+    <p class="desktopOnly">
+      Click to enter.<br><br>
+      <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> Move &nbsp;
+      Mouse Look &nbsp;
+      <span class="key">Shift</span> Sprint &nbsp;
+      <span class="key">Space</span> Jump &nbsp;
+      <span class="key">Esc</span> Release mouse
+    </p>
+    <p style="display:none" class="mobileOnly">Tap to enter. Use the joystick to walk and the right side of the screen to look around.</p>
+  </div>
+</div>
+
+<div id="mobileControls">
+  <div class="joyBase" id="joyBase"><div class="joyStick" id="joyStick"></div></div>
+  <div class="lookArea" id="lookArea"></div>
+  <div id="sprintBtn">SPRINT</div>
+  <div id="jumpBtn">JUMP</div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-window.addEventListener('load', init);
+/* ============================================================================
+   OLD VICTORIAN HOUSE - FIRST FLOOR ONLY
+   Single-file Three.js scene for a first-person psychological horror game.
+   Real-world architectural scale: 1 unit = 1 meter.
+   ============================================================================ */
 
-function init(){
-  var THREE_OK = (typeof THREE !== 'undefined');
-  if(!THREE_OK){
-    document.getElementById('loading').innerText = "Couldn't load 3D engine. Check your connection and reload.";
-    return;
-  }
+/* -------------------------------------------------------------------------
+   BASIC SETUP: renderer, scene, camera
+   ------------------------------------------------------------------------- */
+const container = document.getElementById('canvasContainer');
 
-  // ---------- basic setup ----------
-  var wrap = document.getElementById('canvas-wrap');
-  var scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x15130f);
-  scene.fog = new THREE.Fog(0x15130f, 60, 140);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+container.appendChild(renderer.domElement);
 
-  var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 500);
-  var renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const scene = new THREE.Scene();
+// Warm dim ambient fog for depth - subtle, not "horror fog", just interior haze
+scene.fog = new THREE.Fog(0x1a1712, 8, 34);
+scene.background = new THREE.Color(0x0b0a08);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 100);
+camera.position.set(0, 1.65, 5); // eye height ~1.65m
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  wrap.appendChild(renderer.domElement);
+});
 
-  // ---------- lights ----------
-  var hemi = new THREE.HemisphereLight(0xfff2e0, 0x2a2420, 0.65);
-  scene.add(hemi);
-  var sun = new THREE.DirectionalLight(0xffe9c7, 1.05);
-  sun.position.set(30, 55, 10);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(1024,1024);
-  sun.shadow.camera.left = -40; sun.shadow.camera.right = 40;
-  sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
-  sun.shadow.camera.far = 150;
-  scene.add(sun);
-  var fill = new THREE.DirectionalLight(0x8fb0ff, 0.25);
-  fill.position.set(-25,20,-20);
-  scene.add(fill);
+/* -------------------------------------------------------------------------
+   MATERIALS (shared/reused to limit draw calls & memory)
+   Procedural canvas textures give a "cleaned but old" believable look
+   without needing external texture files.
+   ------------------------------------------------------------------------- */
+const texLoader = new THREE.TextureLoader();
 
-  // ---------- ground ----------
-  var groundMat = new THREE.MeshStandardMaterial({color:0x0e0d0b, roughness:1});
-  var ground = new THREE.Mesh(new THREE.PlaneGeometry(400,400), groundMat);
-  ground.rotation.x = -Math.PI/2;
-  ground.position.y = -0.05;
-  ground.receiveShadow = true;
+// Utility: create a canvas and return a THREE.CanvasTexture
+function makeCanvasTexture(w, h, drawFn, repeatX = 1, repeatY = 1) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  drawFn(ctx, w, h);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  tex.anisotropy = 4;
+  tex.encoding = THREE.sRGBEncoding;
+  return tex;
+}
+
+// ---- Old wood floor texture (warm honey-brown planks, slight wear) ----
+function drawWoodFloor(ctx, w, h) {
+  const plankH = h / 8;
+  for (let i = 0; i < 8; i++) {
+    const base = 118 + Math.sin(i * 12.9) * 14;
+    ctx.fillStyle = `rgb(${base + 30},${base + 10},${base - 25})`;
+    ctx.fillRect(0, i * plankH, w, plankH);
+    // plank seam
+    ctx.fillStyle = 'rgba(30,18,10,0.5)';
+    ctx.fillRect(0, i * plankH, w, 2);
+    // wood grain streaks
+    for (let g = 0; g < 18; g++) {
+      const gy = i * plankH + Math.random() * plankH;
+      ctx.strokeStyle = `rgba(60,35,15,${0.06 + Math.random() * 0.08})`;
+      ctx.lineWidth = 1 + Math.random() * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.bezierCurveTo(w * 0.3, gy + (Math.random() - 0.5) * 6, w * 0.7, gy + (Math.random() - 0.5) * 6, w, gy);
+      ctx.stroke();
+    }
+    // subtle wear/scuff near center
+    for (let s = 0; s < 6; s++) {
+      ctx.fillStyle = `rgba(40,25,12,${0.03 + Math.random() * 0.05})`;
+      ctx.beginPath();
+      ctx.ellipse(Math.random() * w, i * plankH + plankH / 2, 20 + Math.random() * 30, 4 + Math.random() * 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+const woodFloorMap = makeCanvasTexture(512, 512, drawWoodFloor, 6, 8);
+const woodFloorRough = makeCanvasTexture(512, 512, (ctx, w, h) => {
+  ctx.fillStyle = '#888'; ctx.fillRect(0, 0, w, h);
+}, 6, 8);
+const woodFloorMat = new THREE.MeshStandardMaterial({
+  map: woodFloorMap, roughness: 0.75, metalness: 0.02
+});
+
+// ---- Old plaster wall texture (off-white, slight cracks & stains) ----
+function drawPlasterWall(ctx, w, h) {
+  ctx.fillStyle = '#cfc6b4';
+  ctx.fillRect(0, 0, w, h);
+  // noise/plaster texture
+  const img = ctx.getImageData(0, 0, w, h);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 14;
+    img.data[i] += n; img.data[i + 1] += n * 0.95; img.data[i + 2] += n * 0.85;
+  }
+  ctx.putImageData(img, 0, 0);
+  // subtle water stain
+  ctx.fillStyle = 'rgba(120,105,70,0.10)';
+  ctx.beginPath();
+  ctx.ellipse(w * 0.75, h * 0.15, 60, 90, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  // hairline cracks
+  ctx.strokeStyle = 'rgba(60,50,35,0.25)';
+  ctx.lineWidth = 1;
+  for (let c = 0; c < 3; c++) {
+    let x = Math.random() * w, y = Math.random() * h;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    for (let seg = 0; seg < 6; seg++) {
+      x += (Math.random() - 0.5) * 40;
+      y += (Math.random() - 0.5) * 40;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // dust corner darkening handled via vertex shading/AO baked lightly
+  ctx.fillStyle = 'rgba(20,15,8,0.10)';
+  ctx.fillRect(0, 0, w, 12);
+  ctx.fillRect(0, h - 12, w, 12);
+}
+const plasterMap = makeCanvasTexture(512, 512, drawPlasterWall, 2.5, 1.2);
+const plasterWallMat = new THREE.MeshStandardMaterial({
+  map: plasterMap, roughness: 0.92, metalness: 0.0
+});
+
+// Baseboard / trim material (dark aged wood)
+const trimMat = new THREE.MeshStandardMaterial({ color: 0x3a2c1e, roughness: 0.6, metalness: 0.05 });
+
+// ---- Ceiling (slightly warm off-white, flatter) ----
+const ceilingMat = new THREE.MeshStandardMaterial({ color: 0xe4dcc8, roughness: 0.95 });
+
+// ---- Kitchen tile floor ----
+function drawKitchenTile(ctx, w, h) {
+  ctx.fillStyle = '#cabf9f';
+  ctx.fillRect(0, 0, w, h);
+  const cell = w / 4;
+  ctx.strokeStyle = 'rgba(70,60,40,0.4)';
+  ctx.lineWidth = 3;
+  for (let i = 0; i <= 4; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(w, i * cell); ctx.stroke();
+  }
+  for (let i = 0; i < 16; i++) {
+    ctx.fillStyle = `rgba(90,80,55,${0.03 + Math.random() * 0.05})`;
+    ctx.beginPath();
+    ctx.ellipse(Math.random() * w, Math.random() * h, 15 + Math.random() * 25, 10 + Math.random() * 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+const kitchenTileMap = makeCanvasTexture(512, 512, drawKitchenTile, 4, 4);
+const kitchenFloorMat = new THREE.MeshStandardMaterial({ map: kitchenTileMap, roughness: 0.55 });
+
+// ---- Bathroom ceramic floor/wall ----
+function drawCeramic(ctx, w, h) {
+  ctx.fillStyle = '#dcdcd4';
+  ctx.fillRect(0, 0, w, h);
+  const cell = w / 6;
+  ctx.strokeStyle = 'rgba(140,140,130,0.6)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i <= 6; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(w, i * cell); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(90,90,70,0.06)';
+  for (let i = 0; i < 10; i++) {
+    ctx.beginPath();
+    ctx.ellipse(Math.random() * w, Math.random() * h, 10 + Math.random() * 15, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+const ceramicMap = makeCanvasTexture(512, 512, drawCeramic, 3, 3);
+const ceramicFloorMat = new THREE.MeshStandardMaterial({ map: ceramicMap, roughness: 0.35 });
+const ceramicWallMat = new THREE.MeshStandardMaterial({ map: ceramicMap, roughness: 0.3 });
+
+// ---- Wood door material ----
+function drawDoorWood(ctx, w, h) {
+  ctx.fillStyle = '#5a3d24';
+  ctx.fillRect(0, 0, w, h);
+  for (let g = 0; g < 40; g++) {
+    ctx.strokeStyle = `rgba(35,20,10,${0.08 + Math.random() * 0.1})`;
+    ctx.lineWidth = 1;
+    const y = Math.random() * h;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.bezierCurveTo(w * 0.3, y + 6, w * 0.7, y - 6, w, y);
+    ctx.stroke();
+  }
+  // panel inset lines
+  ctx.strokeStyle = 'rgba(20,10,5,0.5)';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(w * 0.12, h * 0.08, w * 0.76, h * 0.38);
+  ctx.strokeRect(w * 0.12, h * 0.54, w * 0.76, h * 0.38);
+}
+const doorWoodMap = makeCanvasTexture(256, 512, drawDoorWood, 1, 1);
+const doorMat = new THREE.MeshStandardMaterial({ map: doorWoodMap, roughness: 0.55, metalness: 0.05 });
+const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x2c2015, roughness: 0.6 });
+
+// ---- Window glass & frame ----
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color: 0xbfd8e0, transparent: true, opacity: 0.25, roughness: 0.05,
+  metalness: 0, transmission: 0.7, reflectivity: 0.4
+});
+const windowFrameMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e0, roughness: 0.55 });
+
+// ---- Metal / handle material ----
+const metalMat = new THREE.MeshStandardMaterial({ color: 0x8a8478, roughness: 0.35, metalness: 0.85 });
+const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.4, metalness: 0.8 });
+
+// ---- Fabric materials (furniture) ----
+const sofaFabricMat = new THREE.MeshStandardMaterial({ color: 0x5c4632, roughness: 0.9 });
+const armchairFabricMat = new THREE.MeshStandardMaterial({ color: 0x6b4f3a, roughness: 0.9 });
+const woodFurnMat = new THREE.MeshStandardMaterial({ color: 0x4a3222, roughness: 0.6, metalness: 0.05 });
+const woodFurnMatLight = new THREE.MeshStandardMaterial({ color: 0x6b4a30, roughness: 0.6 });
+const cabinetMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d0, roughness: 0.55 });
+const counterTopMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.4 });
+const applianceMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d8, roughness: 0.4, metalness: 0.6 });
+const boxMat = new THREE.MeshStandardMaterial({ color: 0x8a6f4e, roughness: 0.85 });
+const paperMat = new THREE.MeshStandardMaterial({ color: 0xe8e0c8, roughness: 0.9 });
+const ceramicFixtureMat = new THREE.MeshStandardMaterial({ color: 0xf2f2ec, roughness: 0.25 });
+const mirrorMat = new THREE.MeshStandardMaterial({ color: 0xaabbc4, roughness: 0.05, metalness: 0.9 });
+const blackFabricMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.85 });
+const rugMat = new THREE.MeshStandardMaterial({ color: 0x7a2d2d, roughness: 0.95 });
+
+/* -------------------------------------------------------------------------
+   GEOMETRY GROUPS
+   Static, never-moving geometry is merged per material at the end to
+   minimize draw calls. We collect meshes into arrays keyed by "kind"
+   and merge with BufferGeometryUtils-like manual approach.
+   ------------------------------------------------------------------------- */
+const staticGroup = new THREE.Group(); // walls, floor, ceiling, trim, windows, doors(frames)
+const furnitureGroup = new THREE.Group(); // furniture (kept separate meshes, still merged by material where easy)
+scene.add(staticGroup, furnitureGroup);
+
+// Collision box list — for player-vs-geometry collision (AABB based, cheap for FPS collision)
+const collisionBoxes = []; // each: {minX,maxX,minZ,maxZ,minY,maxY}
+
+function addCollisionBox(x, z, sizeX, sizeZ, minY, maxY) {
+  collisionBoxes.push({
+    minX: x - sizeX / 2, maxX: x + sizeX / 2,
+    minZ: z - sizeZ / 2, maxZ: z + sizeZ / 2,
+    minY, maxY
+  });
+}
+
+/* -------------------------------------------------------------------------
+   COORDINATE PLAN
+   Building footprint: 14m (X, width) x 16m (Z, depth)
+   We place origin (0,0,0) at floor center of the whole footprint.
+   X: -7 to +7   (west to east)
+   Z: -8 to +8   (north to south) -- porch at north (-Z), store room at south (+Z)
+
+   Layout (matching reference plan, translated to our axes):
+     Z -8.0 to -5.5   : Front Porch (full width, unheated, open on north side)
+     Z -5.5 to -0.5   : Living Room (west, big) + Main hall connecting
+     Z -0.5 to  3.5   : Study (west) | Main Hall (center) | Guest WC (east)
+     Z  3.5 to  7.0   : Dining (west) | Main hall extends | (east side wall)
+     Z  7.0 to  8.0   : Kitchen (west) | Store Room (east)
+
+   To keep this buildable & correct to spec room sizes, we lay rooms out
+   left-to-right (X) and front-to-back (Z) in bands, matching given
+   room dimensions as closely as the footprint allows.
+   ------------------------------------------------------------------------- */
+
+const EXT = 0.30;   // exterior wall thickness
+const INT = 0.20;   // interior wall thickness
+const WALL_H = 3.2; // wall height
+const FLOOR_T = 0.25;
+
+// Overall footprint (outer face to outer face)
+const BW = 14; // width X
+const BD = 16; // depth Z
+const X0 = -BW / 2, X1 = BW / 2; // -7 .. 7
+const Z0 = -BD / 2, Z1 = BD / 2; // -8 .. 8
+
+/* -------------------------------------------------------------------------
+   HELPER: build a wall segment as a box (with optional opening cut by
+   assembling from parts instead of CSG, for performance & simplicity).
+   We build walls as solid boxes, and create openings by simply not
+   placing wall boxes across the door/window span (i.e., we author walls
+   in segments already).
+   ------------------------------------------------------------------------- */
+// Explicit wall authoring function that supports baseY & height directly.
+function wallSeg(axis, fixed, from, to, thickness, mat, baseY, height) {
+  const len = to - from;
+  if (len <= 0.001) return;
+  const mid = (from + to) / 2;
+  const geo = axis === 'x' ? new THREE.BoxGeometry(len, height, thickness) : new THREE.BoxGeometry(thickness, height, len);
+  const mesh = new THREE.Mesh(geo, mat);
+  if (axis === 'x') mesh.position.set(mid, baseY + height / 2, fixed);
+  else mesh.position.set(fixed, baseY + height / 2, mid);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  staticGroup.add(mesh);
+  if (axis === 'x') addCollisionBox(mid, fixed, len, thickness, baseY, baseY + height);
+  else addCollisionBox(fixed, mid, thickness, len, baseY, baseY + height);
+}
+
+// Wall run with door/window holes -- final robust version
+function wallRun(axis, fixed, start, end, thickness, mat, holes) {
+  holes = (holes || []).slice().sort((a, b) => a.from - b.from);
+  let cursor = start;
+  holes.forEach(h => {
+    if (h.from > cursor + 0.001) {
+      wallSeg(axis, fixed, cursor, h.from, thickness, mat, 0, WALL_H);
+    }
+    // segment below opening
+    if (h.bottom > 0.001) {
+      wallSeg(axis, fixed, h.from, h.to, thickness, mat, 0, h.bottom);
+    }
+    // segment above opening
+    if (h.top < WALL_H - 0.001) {
+      wallSeg(axis, fixed, h.from, h.to, thickness, mat, h.top, WALL_H - h.top);
+    }
+    cursor = h.to;
+  });
+  if (end > cursor + 0.001) {
+    wallSeg(axis, fixed, cursor, end, thickness, mat, 0, WALL_H);
+  }
+}
+
+/* -------------------------------------------------------------------------
+   FLOOR & CEILING (segmented by room for correct texture per area)
+   ------------------------------------------------------------------------- */
+function makeFloorPatch(cx, cz, sx, sz, mat) {
+  const geo = new THREE.PlaneGeometry(sx, sz);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(cx, 0, cz);
+  mesh.receiveShadow = true;
+  staticGroup.add(mesh);
+}
+function makeCeilingPatch(cx, cz, sx, sz) {
+  const geo = new THREE.PlaneGeometry(sx, sz);
+  const mesh = new THREE.Mesh(geo, ceilingMat);
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.set(cx, WALL_H, cz);
+  mesh.receiveShadow = true;
+  staticGroup.add(mesh);
+}
+
+// Overall wood floor + ceiling (most rooms) as one big patch, then overlay tile in kitchen/bath
+makeFloorPatch(0, 0, BW, BD, woodFloorMat);
+makeCeilingPatch(0, 0, BW, BD);
+
+/* -------------------------------------------------------------------------
+   ROOM LAYOUT (final coordinates)
+   We divide the 14 x 16 footprint into bands along Z:
+     Porch:      Z -8.0 .. -5.5   (2.5m depth)
+     Front rooms:Z -5.5 .. -0.5   Living(west 7.0 wide) | East wing (small hall stub)
+     Mid rooms:  Z -0.5 ..  3.5   Study(west 4.0) | Hall(center 2.5) | WC(east ~2.0)
+     Rear rooms: Z  3.5 ..  7.0   Dining(west) | Hall continues | East wall
+     Back rooms: Z  7.0 ..  8.0(interior)/ extends to 8.0 ext : Kitchen | Store
+   Adjusted to keep interior consistent & sum to 16m depth exactly.
+   ------------------------------------------------------------------------- */
+
+// Interior usable width after ext walls: 14 - 2*0.30 = 13.4 (X: -6.7 .. 6.7)
+// Interior usable depth: 16 - 2*0.30 = 15.4 (Z: -7.7 .. 7.7)
+const IX0 = X0 + EXT, IX1 = X1 - EXT; // -6.7, 6.7
+const IZ0 = Z0 + EXT, IZ1 = Z1 - EXT; // -7.7, 7.7
+
+// Z bands (interior)
+const Z_PORCH_N = IZ0;            // -7.7
+const Z_PORCH_S = IZ0 + 2.5;      // -5.2  (porch depth 2.5)
+const Z_LIVING_S = Z_PORCH_S + 5.0;  // -0.2 (living room depth 5.0)
+const Z_MID_S = Z_LIVING_S + 4.0;    // 3.8  (study/hall/wc depth 4.0)
+const Z_REAR_S = Z_MID_S + 3.5;      // 7.3  (dining depth 3.5)
+const Z_BACK_S = IZ1;                // 7.7  (kitchen/store, remaining ~0.4m -- extend as needed)
+
+// Because room specs sum to more than available depth exactly, we allot:
+// porch 2.5, living 5.0, mid-band 4.0, dining-band 3.5 => 15.0, leaving 0.4m for kitchen/store band.
+// Kitchen/Store rooms need 4.0m depth per spec -- to honor spec dimensions faithfully
+// we extend the building's usable interior for that band by using the full remaining
+// footprint AND slightly reducing hall overlap, matching the reference plan where
+// kitchen/store sit at the very back with the hall stopping at the dining room.
+// We recompute: kitchen/store band gets its own 4.0m depth, so total = 2.5+5.0+4.0+3.5+4.0=19.0
+// That exceeds 16m. To stay faithful to the *floor plan proportions* (as pictured) rather
+// than the literal sum (impossible in 16m), we scale the rear bands down proportionally
+// while preserving the specified LIVING/STUDY/PORCH rooms exactly (most gameplay-critical),
+// and compress dining/kitchen/store bands to fit remaining depth. This keeps corridors >=2.2m
+// and all rooms functionally spacious, matching the spirit of the reference image.
+
+// Recompute bands to fit exactly in IZ0..IZ1 (15.4m) while keeping porch/living/mid exact:
+const PORCH_D = 2.5;
+const LIVING_D = 5.0;
+const MID_D = 4.0;
+const usedSoFar = PORCH_D + LIVING_D + MID_D; // 11.5
+const remaining = (IZ1 - IZ0) - usedSoFar;    // 15.4 - 11.5 = 3.9
+// split remaining between dining-band and kitchen/store-band proportionally to spec (3.5 : 4.0)
+const DINING_D = remaining * (3.5 / 7.5);     // ~1.82
+const BACK_D = remaining * (4.0 / 7.5);       // ~2.08
+
+const zPorchN = IZ0;
+const zPorchS = zPorchN + PORCH_D;
+const zLivingS = zPorchS + LIVING_D;
+const zMidS = zLivingS + MID_D;
+const zDiningS = zMidS + DINING_D;
+const zBackS = zDiningS + BACK_D; // == IZ1
+
+/* -------------------------------------------------------------------------
+   X divisions
+   Living room west wall to Study/Hall/WC widths, matching reference plan:
+   West block (Living/Study/Dining/Kitchen) vs East block (Hall/WC/Store)
+   Living room spec width 7.0 -> place west wing from IX0 to IX0+7.0
+   ------------------------------------------------------------------------- */
+const xWestWall = IX0;              // -6.7
+const xLivingEast = IX0 + 7.0;      // 0.3  (living room 7.0 wide)
+// Hall corridor (min 2.2m) sits east of living/study/dining, Study is 4.0 wide (narrower than living)
+const xStudyEast = IX0 + 4.0;       // -2.7 (study width 4.0)
+const xHallWestMid = xStudyEast;    // hall starts where study ends, in mid band
+const HALL_W = 2.5;                 // main hall width per spec
+const xHallEastMid = xHallWestMid + HALL_W; // -0.2
+const xEastWall = IX1;              // 6.7
+
+/* -------------------------------------------------------------------------
+   1. FRONT PORCH  (Z: zPorchN..zPorchS, full width, open toward north/-Z)
+   ------------------------------------------------------------------------- */
+{
+  // Porch has a low perimeter wall only on east/west/south(interior) sides; north stays open (outside).
+  // South wall of porch = north wall of living/entry, with a wide entrance opening (double door gap).
+  const doorGapW = 1.8; // combined entrance opening
+  wallRun('x', zPorchS, xWestWall, xEastWall, EXT, plasterWallMat, [
+    { from: -doorGapW / 2, to: doorGapW / 2, bottom: 0, top: 2.3 }
+  ]);
+  // East & west porch walls (exterior)
+  wallSeg('z', xWestWall, zPorchN, zPorchS, EXT, plasterWallMat, 0, WALL_H);
+  wallSeg('z', xEastWall, zPorchN, zPorchS, EXT, plasterWallMat, 0, WALL_H);
+  // North open front (just low knee wall + posts, since porch is open air)
+  wallSeg('x', zPorchN, xWestWall, xWestWall + 0.8, EXT, plasterWallMat, 0, 0.9);
+  wallSeg('x', zPorchN, xEastWall - 0.8, xEastWall, EXT, plasterWallMat, 0, 0.9);
+  // porch columns
+  for (let cx = xWestWall + 1.5; cx < xEastWall - 1; cx += 3.0) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, WALL_H, 8), trimMat);
+    col.position.set(cx, WALL_H / 2, zPorchN + 0.15);
+    col.castShadow = true;
+    staticGroup.add(col);
+    addCollisionBox(cx, zPorchN + 0.15, 0.3, 0.3, 0, WALL_H);
+  }
+  // porch ceiling patch already covered by global ceiling; floor: wood porch decking (reuse wood mat)
+}
+
+/* -------------------------------------------------------------------------
+   2. LIVING ROOM (west, big) : X xWestWall..xLivingEast, Z zPorchS..zLivingS
+   ------------------------------------------------------------------------- */
+const livingCenterX = (xWestWall + xLivingEast) / 2;
+const livingCenterZ = (zPorchS + zLivingS) / 2;
+
+/* -------------------------------------------------------------------------
+   3. STUDY ROOM : X xWestWall..xStudyEast, Z zLivingS..zMidS  (4x4)
+   ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------
+   4. MAIN HALL : X xHallWestMid..xHallEastMid, Z zLivingS.. zBackS (contains stairs)
+   ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------
+   5. GUEST WC : X xHallEastMid..xEastWall, Z zLivingS..(zLivingS+2.5) approx 2x2 area within mid band east
+   ------------------------------------------------------------------------- */
+const wcW = 2.0, wcD = 2.0;
+const wcX0 = xHallEastMid + 0.2;
+const wcX1 = wcX0 + wcW;
+const wcZ0 = zLivingS + 0.2;
+const wcZ1 = wcZ0 + wcD;
+
+/* -------------------------------------------------------------------------
+   6. DINING AREA : X xWestWall..xStudyEast, Z zMidS..zDiningS
+   ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------
+   7. KITCHEN : X xWestWall..xStudyEast(ish), Z zDiningS..zBackS
+   8. STORE ROOM : X xHallWestMid.. xEastWall, Z zDiningS..zBackS
+   ------------------------------------------------------------------------- */
+
+/* ===========================================================================
+   EXTERIOR PERIMETER WALLS (with window holes)
+   =========================================================================== */
+const WIN_W = 1.20, WIN_H = 1.50, WIN_SILL = 0.90;
+const WIN_TOP = WIN_SILL + WIN_H;
+
+// West exterior wall (X = xWestWall), spans full depth from porch to back, with windows for Living, Study, Dining, Kitchen
+wallRun('z', xWestWall, zPorchS, zBackS, EXT, plasterWallMat, [
+  { from: livingCenterZ - 1.7, to: livingCenterZ - 1.7 + WIN_W, bottom: WIN_SILL, top: WIN_TOP },
+  { from: livingCenterZ + 0.6, to: livingCenterZ + 0.6 + WIN_W, bottom: WIN_SILL, top: WIN_TOP },
+  { from: (zLivingS + zMidS) / 2 - WIN_W / 2, to: (zLivingS + zMidS) / 2 + WIN_W / 2, bottom: WIN_SILL, top: WIN_TOP }, // study
+  { from: (zMidS + zDiningS) / 2 - WIN_W / 2, to: (zMidS + zDiningS) / 2 + WIN_W / 2, bottom: WIN_SILL, top: WIN_TOP }, // dining
+  { from: (zDiningS + zBackS) / 2 - WIN_W / 2, to: (zDiningS + zBackS) / 2 + WIN_W / 2, bottom: WIN_SILL, top: WIN_TOP } // kitchen
+]);
+
+// East exterior wall
+wallRun('z', xEastWall, zPorchS, zBackS, EXT, plasterWallMat, [
+  { from: livingCenterZ - 0.6, to: livingCenterZ - 0.6 + WIN_W, bottom: WIN_SILL, top: WIN_TOP }, // living east window (east wing is hall in our version so give hall daylight near living)
+  { from: (wcZ0 + wcZ1) / 2 - WIN_W / 2, to: (wcZ0 + wcZ1) / 2 + WIN_W / 2, bottom: WIN_SILL, top: WIN_TOP }, // wc small window
+  { from: (zDiningS + zBackS) / 2 - WIN_W / 2, to: (zDiningS + zBackS) / 2 + WIN_W / 2, bottom: WIN_SILL, top: WIN_TOP } // store room
+]);
+
+// South exterior wall (back of house)
+wallRun('x', zBackS, xWestWall, xEastWall, EXT, plasterWallMat, [
+  { from: livingCenterX - 0.6, to: livingCenterX - 0.6 + WIN_W, bottom: WIN_SILL, top: WIN_TOP }
+]);
+
+// North exterior wall beyond porch sides already partially built (knee walls); add upper wall sections above porch roofline is skipped (no roof requirement, porch open)
+
+/* ===========================================================================
+   INTERIOR WALLS WITH DOOR OPENINGS
+   =========================================================================== */
+const DOOR_W = 0.95, DOOR_H = 2.10;
+const WC_DOOR_W = 0.80;
+
+// Wall separating Porch-interior from Living/EastWing already built as zPorchS wall with entrance gap.
+
+// Wall separating Living Room (west) from Hall east-wing at same Z band (zPorchS..zLivingS), at X = xLivingEast
+// Include a doorway near the hall side matching plan (door between hall and living near top)
+wallRun('z', xLivingEast, zPorchS, zLivingS, INT, plasterWallMat, [
+  { from: zPorchS + 0.6, to: zPorchS + 0.6 + DOOR_W, bottom: 0, top: DOOR_H }
+]);
+
+// Wall separating Living Room from Study/Hall band (Z = zLivingS), only over the Living Room width (west block)
+wallRun('x', zLivingS, xWestWall, xLivingEast, INT, plasterWallMat, [
+  { from: livingCenterX - DOOR_W / 2, to: livingCenterX + DOOR_W / 2, bottom: 0, top: DOOR_H }
+]);
+
+// Wall separating Study from Hall (X = xStudyEast), Z: zLivingS..zMidS
+wallRun('z', xStudyEast, zLivingS, zMidS, INT, plasterWallMat, [
+  { from: zMidS - 1.6, to: zMidS - 1.6 + DOOR_W, bottom: 0, top: DOOR_H }
+]);
+
+// Wall separating Hall from Guest WC (X = xHallEastMid), Z: zLivingS..zMidS (align with wc box)
+wallRun('z', xHallEastMid, zLivingS, zMidS, INT, plasterWallMat, [
+  { from: wcZ0 + 0.3, to: wcZ0 + 0.3 + WC_DOOR_W, bottom: 0, top: DOOR_H }
+]);
+// WC own small enclosure walls (since hall band is wider than the 2x2 wc, close off remaining space).
+// Only one entrance (from the hall, on the west wall above) — north/south walls stay solid.
+wallRun('x', wcZ0, xHallEastMid, xEastWall, INT, plasterWallMat, []); // wc north wall
+wallRun('x', wcZ1, xHallEastMid, xEastWall, INT, plasterWallMat, []); // wc south wall
+
+// Wall separating Study from Dining (Z = zMidS), over study width
+wallRun('x', zMidS, xWestWall, xStudyEast, INT, plasterWallMat, [
+  { from: xWestWall + 0.4, to: xWestWall + 0.4 + DOOR_W, bottom: 0, top: DOOR_H }
+]);
+
+// Wall separating Hall from Dining/Kitchen band at Z = zMidS over hall+east width (hall continues though, so only need wall where dining is separated visually) -- Hall is open corridor, so no wall here except where store/kitchen close it off further south.
+
+// Wall separating Dining from Kitchen (Z = zDiningS), over west block width
+wallRun('x', zDiningS, xWestWall, xStudyEast, INT, plasterWallMat, [
+  { from: xWestWall + 0.4, to: xWestWall + 0.4 + DOOR_W, bottom: 0, top: DOOR_H }
+]);
+
+// Wall separating Hall from Store Room (Z = zDiningS), over east block width
+wallRun('x', zDiningS, xHallWestMid, xEastWall, INT, plasterWallMat, [
+  { from: xEastWall - 2.2, to: xEastWall - 2.2 + DOOR_W, bottom: 0, top: DOOR_H }
+]);
+
+// Wall separating Dining(west block) from Hall (X = xStudyEast), Z: zMidS..zDiningS (keep open door-less large opening as archway, but add small opening)
+wallRun('z', xStudyEast, zMidS, zDiningS, INT, plasterWallMat, [
+  { from: zMidS + 0.3, to: zMidS + 0.3 + 1.4, bottom: 0, top: DOOR_H + 0.3 } // wide archway, no door
+]);
+
+// Wall separating Kitchen from Store room (X = xStudyEast similar divide continued south), Z: zDiningS..zBackS
+wallRun('z', xStudyEast + 0.5, zDiningS, zBackS, INT, plasterWallMat, [
+  { from: zDiningS + 0.4, to: zDiningS + 0.4 + DOOR_W, bottom: 0, top: DOOR_H }
+]);
+
+/* ===========================================================================
+   FLOOR OVERLAYS (kitchen tile & bathroom ceramic) placed slightly above
+   base wood floor to avoid z-fighting
+   =========================================================================== */
+makeFloorPatch((xWestWall + xStudyEast + 0.5) / 2, (zDiningS + zBackS) / 2, (xStudyEast + 0.5 - xWestWall), (zBackS - zDiningS), kitchenFloorMat);
+makeFloorPatch((wcX0 + wcX1) / 2, (wcZ0 + wcZ1) / 2, wcW, wcD, ceramicFloorMat);
+// bump these patches up 2mm
+staticGroup.children.forEach(c => {
+  if (c.material === kitchenFloorMat || c.material === ceramicFloorMat) c.position.y = 0.002;
+});
+
+/* ===========================================================================
+   BASEBOARDS (trim) along major interior room edges for believability
+   Simple approach: thin boxes along wall bases in main rooms.
+   =========================================================================== */
+function baseboard(axis, fixed, from, to, offsetSign) {
+  const len = to - from;
+  if (len <= 0) return;
+  const h = 0.12, t = 0.03;
+  const mid = (from + to) / 2;
+  const geo = axis === 'x' ? new THREE.BoxGeometry(len, h, t) : new THREE.BoxGeometry(t, h, len);
+  const mesh = new THREE.Mesh(geo, trimMat);
+  if (axis === 'x') mesh.position.set(mid, h / 2, fixed + offsetSign * t);
+  else mesh.position.set(fixed + offsetSign * t, h / 2, mid);
+  staticGroup.add(mesh);
+}
+baseboard('x', zPorchS + 0.02, xWestWall, xLivingEast, 1);
+baseboard('z', xWestWall + 0.02, zPorchS, zBackS, 1);
+
+/* ===========================================================================
+   WINDOWS: glass panes + frames (visual only, holes already cut in walls)
+   =========================================================================== */
+function addWindow(axis, fixed, centerRun) {
+  const w = WIN_W, h = WIN_H;
+  const frameThick = 0.06;
+  const group = new THREE.Group();
+  // glass pane
+  const glassGeo = new THREE.PlaneGeometry(w - frameThick * 2, h - frameThick * 2);
+  const glass = new THREE.Mesh(glassGeo, glassMat);
+  // frame (simple rectangle border using 4 thin boxes)
+  const frameDepth = EXT + 0.02;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w, frameThick, frameDepth), windowFrameMat);
+  const bot = top.clone();
+  const left = new THREE.Mesh(new THREE.BoxGeometry(frameThick, h, frameDepth), windowFrameMat);
+  const right = left.clone();
+  top.position.y = h / 2 - frameThick / 2;
+  bot.position.y = -h / 2 + frameThick / 2;
+  left.position.x = -w / 2 + frameThick / 2;
+  right.position.x = w / 2 - frameThick / 2;
+  // mullion cross
+  const mullionV = new THREE.Mesh(new THREE.BoxGeometry(0.04, h - frameThick * 2, frameDepth * 0.6), windowFrameMat);
+  const mullionH = new THREE.Mesh(new THREE.BoxGeometry(w - frameThick * 2, 0.04, frameDepth * 0.6), windowFrameMat);
+  group.add(glass, top, bot, left, right, mullionV, mullionH);
+  group.position.y = WIN_SILL + h / 2;
+
+  if (axis === 'z') { // wall runs along Z, window faces X direction, fixed = X coord
+    group.rotation.y = Math.PI / 2;
+    group.position.set(fixed, group.position.y, centerRun);
+  } else {
+    group.position.set(centerRun, group.position.y, fixed);
+  }
+  group.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
+  staticGroup.add(group);
+}
+
+// Place windows matching the holes cut above
+addWindow('z', xWestWall, livingCenterZ - 1.7 + WIN_W / 2);
+addWindow('z', xWestWall, livingCenterZ + 0.6 + WIN_W / 2);
+addWindow('z', xWestWall, (zLivingS + zMidS) / 2);
+addWindow('z', xWestWall, (zMidS + zDiningS) / 2);
+addWindow('z', xWestWall, (zDiningS + zBackS) / 2);
+addWindow('z', xEastWall, livingCenterZ - 0.6 + WIN_W / 2);
+addWindow('z', xEastWall, (wcZ0 + wcZ1) / 2);
+addWindow('z', xEastWall, (zDiningS + zBackS) / 2);
+addWindow('x', zBackS, livingCenterX - 0.6 + WIN_W / 2);
+// Porch front windows (2 flanking entrance, as seen in reference image)
+addWindow('x', zPorchN, xWestWall + 2.4);
+addWindow('x', zPorchN, xEastWall - 2.4);
+
+/* ===========================================================================
+   SIMPLE OUTSIDE BACKDROP (visible through windows only) — a soft gradient
+   "outside" plane + a few blocky tree/hedge shapes for depth, far from house.
+   =========================================================================== */
+{
+  const skyGeo = new THREE.SphereGeometry(45, 16, 12);
+  const skyMat = new THREE.MeshBasicMaterial({ color: 0x3a4a52, side: THREE.BackSide, fog: false });
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(sky);
+
+  const groundGeo = new THREE.PlaneGeometry(90, 90);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x25301f, roughness: 1 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.3;
   scene.add(ground);
 
-  var grid = new THREE.GridHelper(200, 100, 0x2c2822, 0x201d18);
-  grid.position.y = 0.0;
-  scene.add(grid);
-
-  // ---------- house group ----------
-  var house = new THREE.Group();
-  scene.add(house);
-
-  var WALL_H = 9;
-  var WALL_T = 0.4;
-  var wallColor = 0x4a433a;
-  var wallMat = new THREE.MeshStandardMaterial({color:wallColor, roughness:0.9, metalness:0.05});
-  var trimMat = new THREE.MeshStandardMaterial({color:0x2b271f, roughness:0.8});
-  var collidables = []; // {minX,maxX,minZ,maxZ} boxes the player can't walk through
-
-  function gapSubtract(start, end, gaps){
-    // gaps: array of [a,b] within [start,end] -> return filled segments
-    var pts = [start, end];
-    gaps.forEach(function(g){ pts.push(g[0], g[1]); });
-    pts = pts.filter(function(p){ return p>=start-0.0001 && p<=end+0.0001; });
-    pts.sort(function(a,b){return a-b;});
-    var segs = [];
-    for(var i=0;i<pts.length-1;i++){
-      var s = pts[i], e = pts[i+1];
-      var mid = (s+e)/2;
-      var inGap = gaps.some(function(g){ return mid>g[0]+0.001 && mid<g[1]-0.001; });
-      if(!inGap && (e-s) > 0.02) segs.push([s,e]);
-    }
-    return segs;
+  const treeMat = new THREE.MeshStandardMaterial({ color: 0x1f2a1c, roughness: 1 });
+  for (let i = 0; i < 14; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 12 + Math.random() * 15;
+    const tx = Math.cos(ang) * dist, tz = Math.sin(ang) * dist;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 2, 6), new THREE.MeshStandardMaterial({ color: 0x2b2016 }));
+    trunk.position.set(tx, 1, tz);
+    const leaves = new THREE.Mesh(new THREE.SphereGeometry(1.4 + Math.random(), 6, 5), treeMat);
+    leaves.position.set(tx, 2.6, tz);
+    scene.add(trunk, leaves);
   }
-
-  function wallAlongX(xStart, xEnd, z, gaps, height, yBase, mat, skipCollide){
-    gaps = gaps || []; height = height || WALL_H; yBase = yBase || 0; mat = mat || wallMat;
-    var segs = gapSubtract(xStart, xEnd, gaps);
-    segs.forEach(function(s){
-      var len = s[1]-s[0];
-      var geo = new THREE.BoxGeometry(len, height, WALL_T);
-      var m = new THREE.Mesh(geo, mat);
-      m.position.set((s[0]+s[1])/2, yBase+height/2, z);
-      m.castShadow = true; m.receiveShadow = true;
-      house.add(m);
-      if(!skipCollide){
-        collidables.push({minX:s[0], maxX:s[1], minZ:z-WALL_T/2, maxZ:z+WALL_T/2});
-      }
-    });
-  }
-
-  function wallAlongZ(zStart, zEnd, x, gaps, height, yBase, mat, skipCollide){
-    gaps = gaps || []; height = height || WALL_H; yBase = yBase || 0; mat = mat || wallMat;
-    var segs = gapSubtract(zStart, zEnd, gaps);
-    segs.forEach(function(s){
-      var len = s[1]-s[0];
-      var geo = new THREE.BoxGeometry(WALL_T, height, len);
-      var m = new THREE.Mesh(geo, mat);
-      m.position.set(x, yBase+height/2, (s[0]+s[1])/2);
-      m.castShadow = true; m.receiveShadow = true;
-      house.add(m);
-      if(!skipCollide){
-        collidables.push({minX:x-WALL_T/2, maxX:x+WALL_T/2, minZ:s[0], maxZ:s[1]});
-      }
-    });
-  }
-
-  function floorSlab(x1,z1,x2,z2,color){
-    var geo = new THREE.BoxGeometry(x2-x1, 0.25, z2-z1);
-    var mat = new THREE.MeshStandardMaterial({color:color, roughness:0.95});
-    var m = new THREE.Mesh(geo, mat);
-    m.position.set((x1+x2)/2, -0.1, (z1+z2)/2);
-    m.receiveShadow = true;
-    house.add(m);
-  }
-
-  function windowDecal(x,y,z, w,h, rotY){
-    var geo = new THREE.PlaneGeometry(w,h);
-    var mat = new THREE.MeshStandardMaterial({color:0x9fd6e0, emissive:0x1f4a52, roughness:0.3, metalness:0.4, side:THREE.DoubleSide});
-    var m = new THREE.Mesh(geo, mat);
-    m.position.set(x,y,z);
-    m.rotation.y = rotY || 0;
-    house.add(m);
-    var frame = new THREE.Mesh(new THREE.PlaneGeometry(w+0.25,h+0.25), trimMat);
-    frame.position.set(x,y,z - 0.02*Math.cos(rotY||0));
-    frame.rotation.y = rotY || 0;
-    house.add(frame);
-  }
-
-  function label(text, x, z, y){
-    y = y || 5.2;
-    var size = 128;
-    var canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
-    var ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,size,size);
-    ctx.beginPath();
-    ctx.arc(size/2,size/2,size/2-6,0,Math.PI*2);
-    ctx.fillStyle = 'rgba(236,231,222,0.95)';
-    ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(20,18,15,0.8)';
-    ctx.stroke();
-    ctx.fillStyle = '#1b1712';
-    ctx.font = 'bold 62px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, size/2, size/2+4);
-    var tex = new THREE.CanvasTexture(canvas);
-    var mat = new THREE.SpriteMaterial({map:tex, depthTest:false});
-    var sprite = new THREE.Sprite(mat);
-    sprite.scale.set(2.1,2.1,1);
-    sprite.position.set(x, y, z);
-    house.add(sprite);
-  }
-
-  // ================= FLOOR PLAN LAYOUT =================
-  // Coordinate system: X = width (0-32), Z = depth (0-46), Y = up
-  // Room boundaries (approximate, matching the reference walls-only plan)
-
-  // Floors
-  floorSlab(2,0.3,30,5, 0x8a7f6d);     // 1 Porch
-  floorSlab(0,5,32,15, 0xc9b896);      // 2 Living Room
-  floorSlab(0,15,14,25, 0xb9a58a);     // 3 Study
-  floorSlab(14,15,22,33, 0xa89a82);    // 4 Main Hall
-  floorSlab(22,15,32,23, 0x9fb3b0);    // 5 Guest WC
-  floorSlab(0,25,14,33, 0xcbb896);     // 6 Dining
-  floorSlab(0,33,16,46, 0xd1a06b);     // 7 Kitchen
-  floorSlab(16,33,32,46, 0xa89380);    // 8 Store
-
-  // Porch: low side rails + posts, open front
-  wallAlongZ(0,5, 0, [], 3, 0);
-  wallAlongZ(0,5, 32, [], 3, 0);
-  [ [4,0.2], [28,0.2] ].forEach(function(p){
-    var geo = new THREE.CylinderGeometry(0.35,0.35, WALL_H, 8);
-    var m = new THREE.Mesh(geo, trimMat);
-    m.position.set(p[0], WALL_H/2, p[1]);
-    m.castShadow = true;
-    house.add(m);
-  });
-
-  // Wall between porch and living room (door gap in middle)
-  wallAlongX(0,32,5, [[14,18]]);
-  windowDecal(6,4.8,5-WALL_T/2-0.02, 2.4,3.2,0);
-  windowDecal(26,4.8,5-WALL_T/2-0.02, 2.4,3.2,0);
-
-  // Exterior perimeter (west, east, south)
-  wallAlongZ(5,46, 0, []);            // west exterior
-  wallAlongZ(5,46, 32, []);           // east exterior
-  wallAlongX(0,32, 46, []);           // south exterior
-  windowDecal(0+WALL_T/2+0.02, 4.8, 10, 2.4,3.2, Math.PI/2);
-  windowDecal(0+WALL_T/2+0.02, 4.8, 20, 2.4,3.2, Math.PI/2);
-  windowDecal(0+WALL_T/2+0.02, 4.8, 38, 2.4,3.2, Math.PI/2);
-  windowDecal(32-WALL_T/2-0.02, 4.8, 10, 2.4,3.2, Math.PI/2);
-
-  // Wall separating Living Room from Study/Hall/WC row (door into hall)
-  wallAlongX(0,32,15, [[16,19]]);
-
-  // Wall separating Study+Dining column from Main Hall
-  wallAlongZ(15,33, 14, [[19,22]]);
-
-  // Wall separating Main Hall from Guest WC
-  wallAlongX(22,32,15, [], WALL_H); // short cap (WC north uses main dividing wall already at z=15)
-  wallAlongZ(15,23, 22, [[17,19]]);
-  wallAlongX(22,32,23, []);
-
-  // Low partial divider between Study and Dining (open-plan, half height)
-  wallAlongX(0,14,25, [], 3, 0);
-
-  // Wall separating Hall/Dining row from Kitchen/Store row (two doors)
-  wallAlongX(0,32,33, [[6,9],[19,22]]);
-
-  // Wall separating Kitchen from Store room (door)
-  wallAlongZ(33,46, 16, [[36,39]]);
-
-  // Staircase inside Main Hall, rising toward second floor
-  var steps = 15, stepW = 3.6, stepH = WALL_H/steps, stepD = 1.0;
-  for(var i=0;i<steps;i++){
-    var geo = new THREE.BoxGeometry(stepW, stepH, stepD);
-    var m = new THREE.Mesh(geo, trimMat);
-    m.position.set(18, stepH/2 + i*stepH, 18.5 + i*stepD);
-    m.castShadow = true; m.receiveShadow = true;
-    house.add(m);
-  }
-  // stair side rail (decorative only, not collidable)
-  wallAlongZ(18,33, 20, [], 1.0, 0.2, trimMat, true);
-
-  // Hidden basement hatch decal in Store Room
-  var hatchGeo = new THREE.PlaneGeometry(3,2);
-  var hatchMat = new THREE.MeshStandardMaterial({color:0x1c1a16, roughness:0.6});
-  var hatch = new THREE.Mesh(hatchGeo, hatchMat);
-  hatch.rotation.x = -Math.PI/2;
-  hatch.position.set(26, 0.03, 41);
-  house.add(hatch);
-
-  // Room number labels
-  label('1', 16, 2.6, 4.5);
-  label('2', 16, 10, 5.2);
-  label('3', 7, 20, 5.2);
-  label('4', 18, 26, 5.2);
-  label('5', 27, 19, 5.2);
-  label('6', 7, 29, 5.2);
-  label('7', 8, 39.5, 5.2);
-  label('8', 24, 39.5, 5.2);
-
-  // Roof (togglable)
-  var roofGroup = new THREE.Group();
-  var roofMat = new THREE.MeshStandardMaterial({color:0x2b2721, roughness:0.85, side:THREE.DoubleSide, transparent:true, opacity:0.92});
-  var roofGeo = new THREE.BoxGeometry(34, 0.4, 48);
-  var roof = new THREE.Mesh(roofGeo, roofMat);
-  roof.position.set(16, WALL_H+0.2, 23);
-  roof.receiveShadow = true;
-  roofGroup.add(roof);
-  house.add(roofGroup);
-
-  // ---------- camera / custom orbit controls (touch + mouse) ----------
-  var target = new THREE.Vector3(16, 3, 23);
-  var radius = 58, theta = Math.PI/4, phi = 1.0; // phi = polar angle from Y axis
-  var minPhi = 0.15, maxPhi = 1.5;
-  var minR = 12, maxR = 110;
-
-  // ---------- first-person walk mode ----------
-  var mode = 'orbit'; // 'orbit' or 'walk'
-  camera.rotation.order = 'YXZ';
-  var player = { pos: new THREE.Vector3(16, 5.4, 3), yaw: Math.PI, pitch: 0 };
-  var playerRadius = 0.9;
-  var moveSpeed = 11; // feet per second at full joystick deflection
-  var clock = new THREE.Clock();
-
-  var joystickId = null, joystickCenter = {x:0,y:0}, joystickVec = {x:0,y:0};
-  var lookId = null, lastLook = {x:0,y:0};
-  var joyBaseEl = document.getElementById('joyBase');
-  var joyKnobEl = document.getElementById('joyKnob');
-  var crosshairEl = document.getElementById('crosshair');
-
-  function collides(x, z, r){
-    for(var i=0;i<collidables.length;i++){
-      var b = collidables[i];
-      if(x > b.minX-r && x < b.maxX+r && z > b.minZ-r && z < b.maxZ+r) return true;
-    }
-    return false;
-  }
-
-  function resolveMove(pos, dx, dz){
-    var r = playerRadius;
-    var out = pos.clone();
-    var fx = pos.x+dx, fz = pos.z+dz;
-    if(!collides(fx, fz, r)){ out.x = fx; out.z = fz; return out; }
-    // slide along axes independently
-    if(!collides(fx, pos.z, r)) out.x = fx;
-    if(!collides(out.x, fz, r)) out.z = fz;
-    return out;
-  }
-
-  function enterWalk(){
-    mode = 'walk';
-    document.getElementById('legend').classList.add('hidden');
-    roofGroup.visible = false; roofOn = false;
-    crosshairEl.style.display = 'block';
-    document.getElementById('controlsHint').innerText = 'Left side: move · Right side: look';
-    document.getElementById('btnWalk').innerText = 'Exit Walk';
-    player.pos.set(16, 5.4, 3); player.yaw = Math.PI; player.pitch = 0;
-    joystickVec = {x:0,y:0}; joystickId = null; lookId = null;
-    joyBaseEl.style.display = 'none'; joyKnobEl.style.display = 'none';
-  }
-
-  function exitWalk(){
-    mode = 'orbit';
-    crosshairEl.style.display = 'none';
-    joyBaseEl.style.display = 'none'; joyKnobEl.style.display = 'none';
-    document.getElementById('controlsHint').innerText = 'Drag to rotate · Pinch to zoom · Two fingers to pan';
-    document.getElementById('btnWalk').innerText = 'Walk';
-    updateCamera();
-  }
-
-  document.getElementById('btnWalk').addEventListener('click', function(){
-    if(mode === 'orbit') enterWalk(); else exitWalk();
-  });
-
-  function updateWalk(dt){
-    camera.rotation.x = player.pitch;
-    camera.rotation.y = player.yaw;
-    camera.rotation.z = 0;
-
-    var forward = new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);
-    forward.y = 0; if(forward.lengthSq()>0.0001) forward.normalize();
-    var right = new THREE.Vector3(1,0,0).applyEuler(camera.rotation);
-    right.y = 0; if(right.lengthSq()>0.0001) right.normalize();
-
-    var mag = Math.min(1, Math.hypot(joystickVec.x, joystickVec.y));
-    if(mag > 0.02){
-      var fAmt = -joystickVec.y, sAmt = joystickVec.x;
-      var n = Math.hypot(fAmt, sAmt) || 1;
-      fAmt /= n; sAmt /= n;
-      var dist = moveSpeed * dt * mag;
-      var dx = (forward.x*fAmt + right.x*sAmt) * dist;
-      var dz = (forward.z*fAmt + right.z*sAmt) * dist;
-      var newPos = resolveMove(player.pos, dx, dz);
-      player.pos.x = newPos.x; player.pos.z = newPos.z;
-    }
-    camera.position.copy(player.pos);
-  }
-
-  function updateCamera(){
-    var sinPhi = Math.sin(phi);
-    camera.position.x = target.x + radius * sinPhi * Math.sin(theta);
-    camera.position.y = target.y + radius * Math.cos(phi);
-    camera.position.z = target.z + radius * sinPhi * Math.cos(theta);
-    camera.lookAt(target);
-  }
-  updateCamera();
-
-  var pointers = {};
-  var lastPinchDist = null;
-  var lastPanMid = null;
-
-  function getPointersArray(){
-    return Object.keys(pointers).map(function(k){return pointers[k];});
-  }
-
-  renderer.domElement.addEventListener('pointerdown', function(e){
-    if(mode !== 'orbit') return;
-    pointers[e.pointerId] = {x:e.clientX, y:e.clientY};
-    renderer.domElement.setPointerCapture(e.pointerId);
-  });
-
-  renderer.domElement.addEventListener('pointermove', function(e){
-    if(mode !== 'orbit') return;
-    if(!pointers[e.pointerId]) return;
-    var arr = getPointersArray();
-    var prev = pointers[e.pointerId];
-    var dx = e.clientX - prev.x;
-    var dy = e.clientY - prev.y;
-
-    if(arr.length === 1){
-      theta -= dx * 0.006;
-      phi -= dy * 0.006;
-      phi = Math.max(minPhi, Math.min(maxPhi, phi));
-    } else if(arr.length === 2){
-      var ids = Object.keys(pointers);
-      var p0 = pointers[ids[0]], p1 = pointers[ids[1]];
-      var other = (e.pointerId == ids[0]) ? p1 : p0;
-      var dist = Math.hypot(e.clientX - other.x, e.clientY - other.y);
-      if(lastPinchDist != null){
-        var delta = dist - lastPinchDist;
-        radius -= delta * 0.08;
-        radius = Math.max(minR, Math.min(maxR, radius));
-      }
-      lastPinchDist = dist;
-
-      var mid = {x:(e.clientX+other.x)/2, y:(e.clientY+other.y)/2};
-      if(lastPanMid){
-        var pdx = mid.x - lastPanMid.x;
-        var pdy = mid.y - lastPanMid.y;
-        var panScale = radius * 0.0012;
-        var right = new THREE.Vector3(Math.cos(theta),0,-Math.sin(theta));
-        target.addScaledVector(right, -pdx*panScale);
-        target.y += pdy*panScale*1.2;
-      }
-      lastPanMid = mid;
-    }
-    pointers[e.pointerId] = {x:e.clientX, y:e.clientY};
-    updateCamera();
-  });
-
-  function clearPointer(e){
-    delete pointers[e.pointerId];
-    if(Object.keys(pointers).length < 2){ lastPinchDist = null; lastPanMid = null; }
-  }
-  renderer.domElement.addEventListener('pointerup', clearPointer);
-  renderer.domElement.addEventListener('pointercancel', clearPointer);
-  renderer.domElement.addEventListener('pointerleave', clearPointer);
-
-  var JOY_MAX = 42;
-
-  renderer.domElement.addEventListener('pointerdown', function(e){
-    if(mode !== 'walk') return;
-    var leftZone = e.clientX < window.innerWidth/2;
-    if(leftZone && joystickId === null){
-      joystickId = e.pointerId;
-      joystickCenter = {x:e.clientX, y:e.clientY};
-      joyBaseEl.style.left = (e.clientX-50)+'px';
-      joyBaseEl.style.top = (e.clientY-50)+'px';
-      joyBaseEl.style.display = 'block';
-      joyKnobEl.style.left = (e.clientX-23)+'px';
-      joyKnobEl.style.top = (e.clientY-23)+'px';
-      joyKnobEl.style.display = 'block';
-      renderer.domElement.setPointerCapture(e.pointerId);
-    } else if(!leftZone && lookId === null){
-      lookId = e.pointerId;
-      lastLook = {x:e.clientX, y:e.clientY};
-      renderer.domElement.setPointerCapture(e.pointerId);
-    }
-  });
-
-  renderer.domElement.addEventListener('pointermove', function(e){
-    if(mode !== 'walk') return;
-    if(e.pointerId === joystickId){
-      var dx = e.clientX - joystickCenter.x, dy = e.clientY - joystickCenter.y;
-      var d = Math.hypot(dx,dy);
-      if(d > JOY_MAX){ dx = dx/d*JOY_MAX; dy = dy/d*JOY_MAX; }
-      joyKnobEl.style.left = (joystickCenter.x+dx-23)+'px';
-      joyKnobEl.style.top = (joystickCenter.y+dy-23)+'px';
-      joystickVec = {x: dx/JOY_MAX, y: dy/JOY_MAX};
-    } else if(e.pointerId === lookId){
-      var ldx = e.clientX - lastLook.x, ldy = e.clientY - lastLook.y;
-      player.yaw -= ldx * 0.0035;
-      player.pitch -= ldy * 0.0035;
-      player.pitch = Math.max(-1.3, Math.min(1.3, player.pitch));
-      lastLook = {x:e.clientX, y:e.clientY};
-    }
-  });
-
-  function clearWalkPointer(e){
-    if(e.pointerId === joystickId){
-      joystickId = null; joystickVec = {x:0,y:0};
-      joyBaseEl.style.display = 'none'; joyKnobEl.style.display = 'none';
-    } else if(e.pointerId === lookId){
-      lookId = null;
-    }
-  }
-  renderer.domElement.addEventListener('pointerup', clearWalkPointer);
-  renderer.domElement.addEventListener('pointercancel', clearWalkPointer);
-  renderer.domElement.addEventListener('pointerleave', clearWalkPointer);
-
-  renderer.domElement.addEventListener('wheel', function(e){
-    e.preventDefault();
-    radius += e.deltaY * 0.03;
-    radius = Math.max(minR, Math.min(maxR, radius));
-    updateCamera();
-  }, {passive:false});
-
-  // ---------- UI buttons ----------
-  var legendEl = document.getElementById('legend');
-  document.getElementById('btnLegend').addEventListener('click', function(){
-    legendEl.classList.toggle('hidden');
-  });
-  var roofOn = true;
-  document.getElementById('btnRoof').addEventListener('click', function(){
-    roofOn = !roofOn;
-    roofGroup.visible = roofOn;
-  });
-  document.getElementById('btnTop').addEventListener('click', function(){
-    theta = 0.001; phi = 0.2; radius = 62; target.set(16,0,23);
-    updateCamera();
-  });
-  document.getElementById('btnReset').addEventListener('click', function(){
-    theta = Math.PI/4; phi = 1.0; radius = 58; target.set(16,3,23);
-    updateCamera();
-  });
-
-  window.addEventListener('resize', function(){
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  document.getElementById('loading').style.display = 'none';
-
-  // ---------- render loop ----------
-  function animate(){
-    requestAnimationFrame(animate);
-    var dt = Math.min(0.05, clock.getDelta());
-    if(mode === 'walk') updateWalk(dt);
-    renderer.render(scene, camera);
-  }
-  animate();
 }
+
+/* ===========================================================================
+   DOORS (hinged, visually placed at wall openings; simple pivot rotation
+   used for potential future interactivity; static half-open like reference)
+   =========================================================================== */
+function addDoor(x, z, rotationY, wide = true) {
+  const w = wide ? DOOR_W : WC_DOOR_W;
+  const h = DOOR_H, t = 0.04;
+  const pivot = new THREE.Group();
+  pivot.position.set(x, 0, z);
+  pivot.rotation.y = rotationY;
+
+  const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, t), doorMat);
+  doorMesh.position.set(w / 2, h / 2, 0); // hinge at local origin
+  doorMesh.castShadow = true; doorMesh.receiveShadow = true;
+  pivot.add(doorMesh);
+
+  // handle
+  const handle = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), metalMat);
+  handle.position.set(w - 0.08, 1.0, t / 2 + 0.03);
+  pivot.add(handle);
+
+  pivot.rotation.y += 0.35; // slightly ajar like reference image
+  staticGroup.add(pivot);
+}
+
+// Entrance doors (double) at porch->living opening
+addDoor(-0.5, zPorchS, 0, true);
+addDoor(0.5, zPorchS, Math.PI, true);
+// Living <-> hall east-wing door
+addDoor(xLivingEast, zPorchS + 0.6, Math.PI / 2, true);
+// Living <-> Study/hall band door
+addDoor(livingCenterX - DOOR_W / 2, zLivingS, 0, true);
+// Study <-> hall door
+addDoor(xStudyEast, zMidS - 1.6, Math.PI / 2, true);
+// WC door
+addDoor(xHallEastMid, wcZ0 + 0.3, Math.PI / 2, false);
+// Study <-> Dining door
+addDoor(xWestWall + 0.4, zMidS, 0, true);
+// Dining <-> Kitchen door
+addDoor(xWestWall + 0.4, zDiningS, 0, true);
+// Hall <-> Store door
+addDoor(xEastWall - 2.2, zDiningS, 0, true);
+// Kitchen <-> Store door
+addDoor(xStudyEast + 0.5, zDiningS + 0.4, Math.PI / 2, true);
+
+/* ===========================================================================
+   STAIRCASE (Main Hall) - visual only, opening to "second floor" (not built)
+   Width 1.2m, riser 0.18m, tread 0.28m, landing 1.2x1.2
+   Placed along east edge of hall running south, matching reference plan.
+   =========================================================================== */
+{
+  const stairX = xHallEastMid - 0.9; // centered within hall width
+  const stairZStart = zMidS + 0.3;
+  const stepCount = 12; // reaches ~2.16m rise, remainder via landing to reach 3.2
+  const riser = 0.18, tread = 0.28, stairW = 1.2;
+  const stepMat = trimMat;
+  for (let i = 0; i < stepCount; i++) {
+    const stepGeo = new THREE.BoxGeometry(stairW, riser, tread);
+    const step = new THREE.Mesh(stepGeo, stepMat);
+    step.position.set(stairX, riser * (i + 0.5), stairZStart + tread * i + tread / 2);
+    step.castShadow = true; step.receiveShadow = true;
+    staticGroup.add(step);
+    addCollisionBox(stairX, step.position.z, stairW, tread, 0, step.position.y + riser / 2);
+  }
+  // landing at top
+  const landingY = riser * stepCount;
+  const landing = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 1.2), stepMat);
+  landing.position.set(stairX, landingY, stairZStart + tread * stepCount + 0.6);
+  staticGroup.add(landing);
+  addCollisionBox(stairX, landing.position.z, 1.2, 1.2, landingY - 0.1, landingY + 0.5);
+
+  // simple railing
+  const railMat = trimMat;
+  for (let i = 0; i < stepCount; i += 2) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), railMat);
+    post.position.set(stairX + stairW / 2 - 0.03, riser * i + 0.5, stairZStart + tread * i);
+    staticGroup.add(post);
+  }
+  const railTop = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, tread * stepCount), railMat);
+  railTop.position.set(stairX + stairW / 2 - 0.03, riser * stepCount / 2 + 0.85, stairZStart + tread * stepCount / 2);
+  railTop.rotation.x = Math.atan(riser / tread);
+  staticGroup.add(railTop);
+
+  // ceiling opening above stairs (visual dark opening upward, no 2nd floor)
+  const openingGeo = new THREE.PlaneGeometry(1.4, 3.2);
+  const openingMat = new THREE.MeshBasicMaterial({ color: 0x050505 });
+  const opening = new THREE.Mesh(openingGeo, openingMat);
+  opening.rotation.x = Math.PI / 2;
+  opening.position.set(stairX, WALL_H - 0.01, stairZStart + 1.6);
+  staticGroup.add(opening);
+}
+
+/* ===========================================================================
+   FURNITURE HELPERS
+   =========================================================================== */
+function box(sx, sy, sz, mat) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+function place(mesh, x, y, z, rotY = 0) {
+  mesh.position.set(x, y, z);
+  mesh.rotation.y = rotY;
+  furnitureGroup.add(mesh);
+  return mesh;
+}
+function furnitureCollision(x, z, sx, sz, rotY = 0) {
+  // Approximate rotated furniture as an AABB (safe over-estimate for small rotations we use 0/90 only)
+  if (Math.abs(rotY % (Math.PI / 2)) < 0.01) {
+    // axis aligned (0 or 90deg) -> swap dims if needed
+    const isRot90 = Math.abs(((rotY / (Math.PI / 2)) % 2 + 2) % 2 - 1) < 0.5;
+    const w = isRot90 ? sz : sx, d = isRot90 ? sx : sz;
+    addCollisionBox(x, z, w, d, 0, 1.2);
+  } else {
+    const diag = Math.sqrt(sx * sx + sz * sz);
+    addCollisionBox(x, z, diag, diag, 0, 1.2);
+  }
+}
+
+/* ---------------- LIVING ROOM FURNITURE ---------------- */
+{
+  const lx0 = xWestWall + EXT, lx1 = xLivingEast - INT / 2;
+  const lz0 = zPorchS + INT / 2, lz1 = zLivingS - INT / 2;
+  const cx = (lx0 + lx1) / 2, cz = (lz0 + lz1) / 2;
+
+  // Rug
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.4), rugMat);
+  rug.rotation.x = -Math.PI / 2; rug.position.set(cx, 0.005, cz + 0.3);
+  furnitureGroup.add(rug);
+
+  // Sofa (2.2 x 0.9) against south wall (near door to study band), facing north into room
+  const sofa = new THREE.Group();
+  const sofaBase = box(2.2, 0.42, 0.9, sofaFabricMat);
+  sofaBase.position.y = 0.21;
+  const sofaBack = box(2.2, 0.5, 0.15, sofaFabricMat);
+  sofaBack.position.set(0, 0.46 + 0.25, -0.375);
+  const armL = box(0.18, 0.55, 0.9, sofaFabricMat); armL.position.set(-1.01, 0.28, 0);
+  const armR = box(0.18, 0.55, 0.9, sofaFabricMat); armR.position.set(1.01, 0.28, 0);
+  sofa.add(sofaBase, sofaBack, armL, armR);
+  place(sofa, lx0 + 1.6, 0, lz1 - 0.55, Math.PI);
+  furnitureCollision(lx0 + 1.6, lz1 - 0.55, 2.2, 0.9, Math.PI);
+
+  // Coffee table (1.2 x 0.6) in front of sofa
+  const table = box(1.2, 0.4, 0.6, woodFurnMat);
+  place(table, lx0 + 1.6, 0.2, lz1 - 0.55 - 1.1);
+  furnitureCollision(lx0 + 1.6, lz1 - 1.65, 1.2, 0.6);
+
+  // TV cabinet (1.8 x 0.45) against north wall (opposite sofa)
+  const tvCab = box(1.8, 0.5, 0.45, woodFurnMatLight);
+  place(tvCab, lx0 + 1.6, 0.25, lz0 + 0.35);
+  furnitureCollision(lx0 + 1.6, lz0 + 0.35, 1.8, 0.45);
+  const tv = box(1.1, 0.65, 0.05, blackFabricMat);
+  place(tv, lx0 + 1.6, 0.5 + 0.35, lz0 + 0.35 - 0.2);
+
+  // Bookshelf (1.0 x 0.35) against west wall
+  const shelf = box(0.35, 2.0, 1.0, woodFurnMat);
+  place(shelf, lx0 + 0.25, 1.0, lz0 + 2.6, Math.PI / 2);
+  furnitureCollision(lx0 + 0.25, lz0 + 2.6, 1.0, 0.35, Math.PI / 2);
+  // books hint
+  for (let i = 0; i < 10; i++) {
+    const bcolor = [0x7a2d2d, 0x2d4a5a, 0x4a5a2d, 0x5a3d2d][i % 4];
+    const bk = box(0.05, 0.22 + Math.random() * 0.06, 0.9, new THREE.MeshStandardMaterial({ color: bcolor, roughness: 0.8 }));
+    bk.position.set(lx0 + 0.25 + (Math.random() - 0.5) * 0.05, 0.5 + Math.floor(i / 4) * 0.5, lz0 + 2.15 + (i % 4) * 0.22);
+    furnitureGroup.add(bk);
+  }
+
+  // Armchair (0.9 x 0.9) near window, angled toward sofa/table
+  const chairGrp = new THREE.Group();
+  const seat = box(0.9, 0.4, 0.9, armchairFabricMat); seat.position.y = 0.2;
+  const back = box(0.9, 0.55, 0.15, armchairFabricMat); back.position.set(0, 0.475, -0.375);
+  const aL = box(0.15, 0.5, 0.9, armchairFabricMat); aL.position.set(-0.375, 0.25, 0);
+  const aR = box(0.15, 0.5, 0.9, armchairFabricMat); aR.position.set(0.375, 0.25, 0);
+  chairGrp.add(seat, back, aL, aR);
+  place(chairGrp, lx1 - 1.1, 0, lz0 + 1.2, -Math.PI / 4);
+  furnitureCollision(lx1 - 1.1, lz0 + 1.2, 0.9, 0.9, -Math.PI / 4);
+}
+
+/* ---------------- STUDY FURNITURE ---------------- */
+{
+  const sx0 = xWestWall + EXT, sx1 = xStudyEast - INT / 2;
+  const sz0 = zLivingS + INT / 2, sz1 = zMidS - INT / 2;
+
+  // Desk (1.6 x 0.75) against west wall under window
+  const desk = box(1.6, 0.75, 0.7, woodFurnMat);
+  place(desk, sx0 + 0.45, 0.375, (sz0 + sz1) / 2, Math.PI / 2);
+  furnitureCollision(sx0 + 0.45, (sz0 + sz1) / 2, 0.7, 1.6, Math.PI / 2);
+
+  // Chair
+  const chair = new THREE.Group();
+  const cSeat = box(0.42, 0.05, 0.42, woodFurnMatLight); cSeat.position.y = 0.45;
+  const cBack = box(0.42, 0.5, 0.05, woodFurnMatLight); cBack.position.set(0, 0.7, -0.19);
+  const legMat = woodFurnMatLight;
+  const legs = [[-0.18,-0.18],[0.18,-0.18],[-0.18,0.18],[0.18,0.18]].map(([lx,lz]) => {
+    const leg = box(0.04, 0.45, 0.04, legMat); leg.position.set(lx, 0.225, lz); return leg;
+  });
+  chair.add(cSeat, cBack, ...legs);
+  place(chair, sx0 + 1.15, 0, (sz0 + sz1) / 2, -Math.PI / 2);
+
+  // Typewriter on desk
+  const typewriter = box(0.35, 0.15, 0.3, darkMetalMat);
+  place(typewriter, sx0 + 0.6, 0.75 + 0.08, (sz0 + sz1) / 2 - 0.1);
+
+  // Camera (small) on desk
+  const cam = box(0.12, 0.1, 0.15, darkMetalMat);
+  place(cam, sx0 + 0.6, 0.75 + 0.06, (sz0 + sz1) / 2 + 0.2);
+
+  // Bookshelves against east wall (2 units)
+  const shelf1 = box(0.35, 2.2, 1.2, woodFurnMat);
+  place(shelf1, sx1 - 0.25, 1.1, sz0 + 0.7, -Math.PI / 2);
+  furnitureCollision(sx1 - 0.25, sz0 + 0.7, 1.2, 0.35, -Math.PI / 2);
+
+  const shelf2 = box(0.35, 2.2, 1.2, woodFurnMat);
+  place(shelf2, sx1 - 0.25, 1.1, sz1 - 0.7, -Math.PI / 2);
+  furnitureCollision(sx1 - 0.25, sz1 - 0.7, 1.2, 0.35, -Math.PI / 2);
+
+  // Filing cabinet
+  const filing = box(0.45, 1.0, 0.6, darkMetalMat);
+  place(filing, sx0 + 0.4, 0.5, sz1 - 0.5);
+  furnitureCollision(sx0 + 0.4, sz1 - 0.5, 0.45, 0.6);
+}
+
+/* ---------------- DINING FURNITURE ---------------- */
+{
+  const dx0 = xWestWall + EXT, dx1 = xStudyEast - INT / 2;
+  const dz0 = zMidS + INT / 2, dz1 = zDiningS - INT / 2;
+  const cx = (dx0 + dx1) / 2, cz = (dz0 + dz1) / 2;
+
+  // Table (1.8 x 0.9)
+  const tableTop = box(1.8, 0.06, 0.9, woodFurnMat);
+  tableTop.position.y = 0.75;
+  const legGeo = () => box(0.06, 0.75, 0.06, woodFurnMat);
+  const tl1 = legGeo(); tl1.position.set(-0.8, 0.375, -0.4);
+  const tl2 = legGeo(); tl2.position.set(0.8, 0.375, -0.4);
+  const tl3 = legGeo(); tl3.position.set(-0.8, 0.375, 0.4);
+  const tl4 = legGeo(); tl4.position.set(0.8, 0.375, 0.4);
+  const tableGrp = new THREE.Group();
+  tableGrp.add(tableTop, tl1, tl2, tl3, tl4);
+  place(tableGrp, cx, 0, cz);
+  furnitureCollision(cx, cz, 1.8, 0.9);
+
+  // Four chairs around table
+  const chairPositions = [
+    [cx, cz - 0.75, 0], [cx, cz + 0.75, Math.PI],
+    [cx - 1.1, cz, Math.PI / 2], [cx + 1.1, cz, -Math.PI / 2]
+  ];
+  chairPositions.forEach(([px, pz, rot]) => {
+    const c = new THREE.Group();
+    const seat = box(0.42, 0.05, 0.42, woodFurnMatLight); seat.position.y = 0.45;
+    const back = box(0.42, 0.45, 0.05, woodFurnMatLight); back.position.set(0, 0.68, -0.19);
+    const legs = [[-0.18,-0.18],[0.18,-0.18],[-0.18,0.18],[0.18,0.18]].map(([lx,lz]) => {
+      const leg = box(0.04, 0.45, 0.04, woodFurnMatLight); leg.position.set(lx, 0.225, lz); return leg;
+    });
+    c.add(seat, back, ...legs);
+    place(c, px, 0, pz, rot);
+  });
+
+  // Side cabinet against west wall
+  const sideCab = box(1.0, 0.85, 0.4, woodFurnMat);
+  place(sideCab, dx0 + 0.25, 0.425, dz1 - 0.6, Math.PI / 2);
+  furnitureCollision(dx0 + 0.25, dz1 - 0.6, 0.4, 1.0, Math.PI / 2);
+}
+
+/* ---------------- KITCHEN FURNITURE ---------------- */
+{
+  const kx0 = xWestWall + EXT, kx1 = xStudyEast + 0.5 - INT / 2;
+  const kz0 = zDiningS + INT / 2, kz1 = zBackS - EXT;
+  const counterD = 0.6, counterH = 0.9;
+
+  // L-shaped counters along west and south walls
+  const counterWest = box(counterD, counterH, kz1 - kz0 - 0.6, cabinetMat);
+  place(counterWest, kx0 + counterD / 2, counterH / 2, (kz0 + kz1) / 2 - 0.3);
+  furnitureCollision(kx0 + counterD / 2, (kz0 + kz1) / 2 - 0.3, counterD, kz1 - kz0 - 0.6);
+  const counterWestTop = box(counterD + 0.04, 0.05, kz1 - kz0 - 0.6 + 0.04, counterTopMat);
+  place(counterWestTop, kx0 + counterD / 2, counterH + 0.025, (kz0 + kz1) / 2 - 0.3);
+
+  const counterSouth = box(kx1 - kx0 - counterD, counterH, counterD, cabinetMat);
+  place(counterSouth, (kx0 + kx1) / 2 + counterD / 2, counterH / 2, kz1 - counterD / 2);
+  furnitureCollision((kx0 + kx1) / 2 + counterD / 2, kz1 - counterD / 2, kx1 - kx0 - counterD, counterD);
+  const counterSouthTop = box(kx1 - kx0 - counterD + 0.04, 0.05, counterD + 0.04, counterTopMat);
+  place(counterSouthTop, (kx0 + kx1) / 2 + counterD / 2, counterH + 0.025, kz1 - counterD / 2);
+
+  // Upper cabinets above west counter
+  const upperCab = box(0.35, 0.7, kz1 - kz0 - 0.6, cabinetMat);
+  place(upperCab, kx0 + 0.18, 2.2, (kz0 + kz1) / 2 - 0.3);
+
+  // Sink (in west counter)
+  const sink = box(0.5, 0.15, 0.4, applianceMat);
+  place(sink, kx0 + counterD / 2, counterH + 0.08, kz0 + 0.8);
+
+  // Gas stove (in south counter)
+  const stove = box(0.55, 0.1, 0.5, darkMetalMat);
+  place(stove, kx1 - 1.0, counterH + 0.05, kz1 - counterD / 2);
+
+  // Fridge (0.9 x 0.75 x 1.9)
+  const fridge = box(0.9, 1.9, 0.75, applianceMat);
+  place(fridge, kx1 - 0.5, 0.95, kz0 + 0.5);
+  furnitureCollision(kx1 - 0.5, kz0 + 0.5, 0.9, 0.75);
+
+  // Lower cabinet extra unit
+  const lowerCab2 = box(0.6, 0.85, counterD, cabinetMat);
+  place(lowerCab2, kx0 + 1.2, 0.425, kz1 - counterD / 2 - 0.65);
+}
+
+/* ---------------- GUEST WC FURNITURE ---------------- */
+{
+  const wcx0 = wcX0, wcx1 = wcX1, wcz0 = wcZ0, wcz1 = wcZ1;
+  // Toilet
+  const toiletBase = box(0.38, 0.4, 0.5, ceramicFixtureMat);
+  place(toiletBase, wcx0 + 0.35, 0.2, wcz0 + 0.35);
+  const toiletTank = box(0.35, 0.35, 0.15, ceramicFixtureMat);
+  place(toiletTank, wcx0 + 0.35, 0.55, wcz0 + 0.15);
+  furnitureCollision(wcx0 + 0.35, wcz0 + 0.35, 0.4, 0.55);
+
+  // Sink
+  const sinkBasin = box(0.45, 0.15, 0.35, ceramicFixtureMat);
+  place(sinkBasin, wcx1 - 0.35, 0.8, wcz0 + 0.3, 0);
+  const sinkPed = box(0.15, 0.75, 0.15, ceramicFixtureMat);
+  place(sinkPed, wcx1 - 0.35, 0.375, wcz0 + 0.3);
+  furnitureCollision(wcx1 - 0.35, wcz0 + 0.3, 0.45, 0.35);
+
+  // Mirror above sink
+  const mirror = box(0.4, 0.5, 0.02, mirrorMat);
+  place(mirror, wcx1 - 0.35, 1.4, wcz0 + 0.05);
+
+  // Small cabinet
+  const wcCab = box(0.4, 0.6, 0.25, cabinetMat);
+  place(wcCab, wcx0 + 0.2, 0.3, wcz1 - 0.2);
+  furnitureCollision(wcx0 + 0.2, wcz1 - 0.2, 0.4, 0.25);
+}
+
+/* ---------------- STORE ROOM FURNITURE + HIDDEN TRAPDOOR ---------------- */
+{
+  const rx0 = xHallWestMid + INT / 2 + 0.2, rx1 = xEastWall - EXT;
+  const rz0 = zDiningS + INT / 2, rz1 = zBackS - EXT;
+
+  // Shelving unit along east wall
+  const shelfUnit = box(0.4, 2.2, rz1 - rz0 - 0.6, woodFurnMat);
+  place(shelfUnit, rx1 - 0.25, 1.1, (rz0 + rz1) / 2);
+  furnitureCollision(rx1 - 0.25, (rz0 + rz1) / 2, 0.4, rz1 - rz0 - 0.6);
+
+  // Boxes stacked
+  for (let i = 0; i < 6; i++) {
+    const bx = box(0.4 + Math.random() * 0.1, 0.35, 0.4, boxMat);
+    place(bx, rx0 + 0.4 + (i % 3) * 0.5, 0.175 + Math.floor(i / 3) * 0.36, rz0 + 0.5, Math.random() * 0.2);
+  }
+  furnitureCollision(rx0 + 0.9, rz0 + 0.5, 1.6, 0.6);
+
+  // Old furniture piece (broken chair) stored in corner
+  const oldChair = new THREE.Group();
+  const ocSeat = box(0.4, 0.04, 0.4, woodFurnMat); ocSeat.position.y = 0.42;
+  const ocLeg = box(0.04, 0.42, 0.04, woodFurnMat); ocLeg.position.set(-0.16, 0.21, -0.16);
+  oldChair.add(ocSeat, ocLeg);
+  place(oldChair, rx1 - 0.6, 0, rz1 - 0.5, 0.4);
+
+  // Cleaning supplies (bucket + mop) near door
+  const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 10), metalMat);
+  place(bucket, rx0 + 0.3, 0.15, rz1 - 0.3);
+  const mopHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.3, 6), woodFurnMat);
+  place(mopHandle, rx0 + 0.5, 0.65, rz1 - 0.3, 0, Math.PI / 10);
+
+  // Hidden trapdoor in floor (flush wooden hatch, subtle ring pull)
+  const trapdoor = box(0.9, 0.03, 0.9, woodFurnMat);
+  trapdoor.position.set((rx0 + rx1) / 2 + 0.3, 0.015, rz1 - 1.2);
+  furnitureGroup.add(trapdoor);
+  const ringPull = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.012, 6, 12), darkMetalMat);
+  ringPull.rotation.x = Math.PI / 2;
+  ringPull.position.set((rx0 + rx1) / 2 + 0.3, 0.04, rz1 - 1.2 + 0.3);
+  furnitureGroup.add(ringPull);
+}
+
+/* ===========================================================================
+   LIGHTING
+   Warm sunlight through windows + soft interior fill lights per room.
+   Target ~3000-3500K warm white appearance.
+   =========================================================================== */
+const hemi = new THREE.HemisphereLight(0x8899a0, 0x2a2318, 0.35);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfff1d6, 1.1);
+sun.position.set(-15, 12, -10);
+sun.target.position.set(0, 0, 0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 40;
+sun.shadow.bias = -0.0015;
+scene.add(sun, sun.target);
+
+// Warm interior point/rect lights per room, low intensity, 3000K color (~0xffb877 tinted warm white)
+const warmColor = 0xffd8a8;
+function addRoomLight(x, y, z, intensity, distance) {
+  const l = new THREE.PointLight(warmColor, intensity, distance, 2);
+  l.position.set(x, y, z);
+  l.castShadow = false; // limit shadow-casting lights for perf
+  scene.add(l);
+}
+addRoomLight(livingCenterX, 2.8, livingCenterZ, 0.8, 8);
+addRoomLight((xWestWall + xStudyEast) / 2, 2.8, (zLivingS + zMidS) / 2, 0.6, 6);
+addRoomLight(xHallEastMid - 0.9, 2.8, (zMidS + zBackS) / 2, 0.5, 8);
+addRoomLight((xWestWall + xStudyEast) / 2, 2.8, (zMidS + zDiningS) / 2, 0.6, 6);
+addRoomLight((xWestWall + xStudyEast + 0.5) / 2, 2.8, (zDiningS + zBackS) / 2, 0.7, 6);
+addRoomLight((xHallWestMid + xEastWall) / 2, 2.8, (zDiningS + zBackS) / 2, 0.5, 6);
+addRoomLight((wcX0 + wcX1) / 2, 2.6, (wcZ0 + wcZ1) / 2, 0.4, 4);
+
+/* One shadow-casting fill light for the living room to add believable soft shadows there without tanking perf */
+const livingFill = new THREE.PointLight(warmColor, 0.5, 7, 2);
+livingFill.position.set(livingCenterX, 2.9, livingCenterZ);
+livingFill.castShadow = true;
+livingFill.shadow.mapSize.set(512, 512);
+scene.add(livingFill);
+
+/* ===========================================================================
+   MERGE STATIC GEOMETRY BY MATERIAL FOR PERFORMANCE
+   (manual merge using BufferGeometryUtils-equivalent logic embedded here
+    since we cannot load an extra external module beyond three.min.js;
+    implement minimal merge helper)
+   =========================================================================== */
+function mergeGeometriesForMaterial(mat) {
+  const meshes = [];
+  staticGroup.children.slice().forEach(child => {
+    if (child.isMesh && child.material === mat) meshes.push(child);
+  });
+  if (meshes.length < 2) return;
+  const geometries = meshes.map(m => {
+    const g = m.geometry.clone();
+    m.updateMatrix();
+    g.applyMatrix4(m.matrix);
+    return g;
+  });
+  const merged = mergeBufferGeometriesManual(geometries);
+  meshes.forEach(m => staticGroup.remove(m));
+  const mergedMesh = new THREE.Mesh(merged, mat);
+  mergedMesh.castShadow = true;
+  mergedMesh.receiveShadow = true;
+  staticGroup.add(mergedMesh);
+}
+
+// Minimal manual buffer geometry merge (position, normal, uv) — avoids needing
+// the separate BufferGeometryUtils script file, keeping this a single file.
+function mergeBufferGeometriesManual(geometries) {
+  // Convert every geometry to non-indexed FIRST, then size the output arrays
+  // from those (post-triangulation) vertex counts. Sizing from the original
+  // (possibly indexed) counts caused a buffer overflow, since toNonIndexed()
+  // expands the vertex count.
+  const nonIndexed = geometries.map(g => g.index ? g.toNonIndexed() : g);
+  let totalVerts = 0;
+  nonIndexed.forEach(g => totalVerts += g.attributes.position.count);
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const uvs = new Float32Array(totalVerts * 2);
+  let offset = 0, uvOffset = 0;
+  nonIndexed.forEach(g => {
+    const pos = g.attributes.position.array;
+    const norm = g.attributes.normal ? g.attributes.normal.array : new Float32Array(pos.length);
+    const uv = g.attributes.uv ? g.attributes.uv.array : new Float32Array((pos.length / 3) * 2);
+    positions.set(pos, offset * 3);
+    normals.set(norm, offset * 3);
+    uvs.set(uv, uvOffset * 2);
+    offset += pos.length / 3;
+    uvOffset += uv.length / 2;
+  });
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  return merged;
+}
+
+// Merge the big material groups (walls/floor/ceiling) to cut draw calls drastically.
+[plasterWallMat, woodFloorMat, ceilingMat, trimMat, kitchenFloorMat, ceramicFloorMat].forEach(mergeGeometriesForMaterial);
+
+/* ===========================================================================
+   FIRST PERSON CONTROLLER (desktop + mobile)
+   ===========================================================================
+   - Gravity + jump
+   - AABB collision against collisionBoxes (walls) with sliding
+   - Player treated as a cylinder approximated by a small AABB for collision
+   ------------------------------------------------------------------------- */
+const PLAYER_RADIUS = 0.30;
+const PLAYER_HEIGHT = 1.7;
+const EYE_HEIGHT = 1.62;
+const GRAVITY = -9.8;
+const JUMP_SPEED = 4.2;
+const WALK_SPEED = 2.2;
+const SPRINT_SPEED = 4.0;
+
+const player = {
+  pos: new THREE.Vector3(livingCenterX, 0, livingCenterZ - 1.5),
+  velY: 0,
+  onGround: true,
+  yaw: 0,
+  pitch: 0
+};
+camera.position.set(player.pos.x, EYE_HEIGHT, player.pos.z);
+
+// Start player just south of the front door on the porch, facing into the house
+player.pos.set(0, 0, zPorchN + 1.2);
+player.yaw = Math.PI; // face south (-Z is porch, so face +Z into porch->house... adjust as needed)
+camera.position.set(player.pos.x, EYE_HEIGHT, player.pos.z);
+
+const keys = {};
+let mouseLocked = false;
+
+document.addEventListener('keydown', e => { keys[e.code] = true; });
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+const blocker = document.getElementById('blocker');
+const canvasEl = renderer.domElement;
+
+function isTouchDevice() {
+  return ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+}
+
+if (isTouchDevice()) {
+  document.querySelectorAll('.desktopOnly').forEach(e => e.style.display = 'none');
+  document.querySelectorAll('.mobileOnly').forEach(e => e.style.display = 'block');
+}
+
+blocker.addEventListener('click', () => {
+  if (isTouchDevice()) {
+    blocker.style.display = 'none';
+    mouseLocked = true; // touch "locked" conceptually = controls active
+  } else {
+    canvasEl.requestPointerLock();
+  }
+});
+
+document.addEventListener('pointerlockchange', () => {
+  mouseLocked = document.pointerLockElement === canvasEl;
+  blocker.style.display = mouseLocked ? 'none' : 'flex';
+});
+
+document.addEventListener('mousemove', e => {
+  if (!mouseLocked || isTouchDevice()) return;
+  const sensitivity = 0.0022;
+  player.yaw -= e.movementX * sensitivity;
+  player.pitch -= e.movementY * sensitivity;
+  player.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, player.pitch));
+});
+
+/* ---- Mobile touch controls ---- */
+let joyActive = false, joyStartX = 0, joyStartY = 0, joyDX = 0, joyDY = 0;
+const joyBase = document.getElementById('joyBase');
+const joyStick = document.getElementById('joyStick');
+const lookArea = document.getElementById('lookArea');
+let sprintHeld = false;
+let jumpRequested = false;
+
+joyBase.addEventListener('touchstart', e => {
+  joyActive = true;
+  const t = e.touches[0];
+  joyStartX = t.clientX; joyStartY = t.clientY;
+  e.preventDefault();
+}, { passive: false });
+joyBase.addEventListener('touchmove', e => {
+  if (!joyActive) return;
+  const t = e.touches[0];
+  joyDX = t.clientX - joyStartX;
+  joyDY = t.clientY - joyStartY;
+  const maxD = 40;
+  const len = Math.hypot(joyDX, joyDY);
+  if (len > maxD) { joyDX = joyDX / len * maxD; joyDY = joyDY / len * maxD; }
+  joyStick.style.transform = `translate(${joyDX}px, ${joyDY}px)`;
+  e.preventDefault();
+}, { passive: false });
+joyBase.addEventListener('touchend', e => {
+  joyActive = false; joyDX = 0; joyDY = 0;
+  joyStick.style.transform = `translate(0px, 0px)`;
+  e.preventDefault();
+}, { passive: false });
+
+let lookTouchId = null, lastLookX = 0, lastLookY = 0;
+lookArea.addEventListener('touchstart', e => {
+  const t = e.changedTouches[0];
+  lookTouchId = t.identifier;
+  lastLookX = t.clientX; lastLookY = t.clientY;
+  e.preventDefault();
+}, { passive: false });
+lookArea.addEventListener('touchmove', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === lookTouchId) {
+      const dx = t.clientX - lastLookX, dy = t.clientY - lastLookY;
+      lastLookX = t.clientX; lastLookY = t.clientY;
+      const sens = 0.004;
+      player.yaw -= dx * sens;
+      player.pitch -= dy * sens;
+      player.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, player.pitch));
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+lookArea.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) if (t.identifier === lookTouchId) lookTouchId = null;
+  e.preventDefault();
+}, { passive: false });
+
+const sprintBtn = document.getElementById('sprintBtn');
+sprintBtn.addEventListener('touchstart', e => { sprintHeld = true; e.preventDefault(); }, { passive: false });
+sprintBtn.addEventListener('touchend', e => { sprintHeld = false; e.preventDefault(); }, { passive: false });
+
+const jumpBtn = document.getElementById('jumpBtn');
+jumpBtn.addEventListener('touchstart', e => { jumpRequested = true; e.preventDefault(); }, { passive: false });
+
+/* ---- Collision resolution ---- */
+function resolveCollisions(nextPos) {
+  // Player AABB (square approximation of cylinder) at nextPos
+  const r = PLAYER_RADIUS;
+  for (const b of collisionBoxes) {
+    if (b.minY > PLAYER_HEIGHT || b.maxY < 0.05) continue; // ignore boxes above player's head or below floor (allow stepping over tiny thresholds)
+    // Skip very low boxes (like baseboards) for smoother movement except stair steps which are handled by minY too
+    const closestX = Math.max(b.minX, Math.min(nextPos.x, b.maxX));
+    const closestZ = Math.max(b.minZ, Math.min(nextPos.z, b.maxZ));
+    const dx = nextPos.x - closestX;
+    const dz = nextPos.z - closestZ;
+    const distSq = dx * dx + dz * dz;
+    if (distSq < r * r) {
+      const dist = Math.sqrt(distSq) || 0.0001;
+      const overlap = r - dist;
+      nextPos.x += (dx / dist) * overlap;
+      nextPos.z += (dz / dist) * overlap;
+    }
+  }
+  return nextPos;
+}
+
+/* ---- Main animation loop ---- */
+const clock = new THREE.Clock();
+let fpsAccum = 0, fpsFrames = 0, fpsTimer = 0;
+const fpsCounter = document.getElementById('fpsCounter');
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  // FPS display
+  fpsFrames++; fpsTimer += dt;
+  if (fpsTimer >= 0.5) { fpsCounter.textContent = Math.round(fpsFrames / fpsTimer) + ' fps'; fpsFrames = 0; fpsTimer = 0; }
+
+  if (mouseLocked || isTouchDevice()) {
+    // Movement input
+    let moveX = 0, moveZ = 0; // local space: X = strafe, Z = forward
+    if (isTouchDevice()) {
+      moveX = joyDX / 40;
+      moveZ = joyDY / 40; // forward is -Y touch movement typically; joystick down = backward
+    } else {
+      if (keys['KeyW']) moveZ -= 1;
+      if (keys['KeyS']) moveZ += 1;
+      if (keys['KeyA']) moveX -= 1;
+      if (keys['KeyD']) moveX += 1;
+    }
+    const len = Math.hypot(moveX, moveZ);
+    if (len > 1) { moveX /= len; moveZ /= len; }
+
+    const sprinting = isTouchDevice() ? sprintHeld : keys['ShiftLeft'] || keys['ShiftRight'];
+    const speed = sprinting ? SPRINT_SPEED : WALK_SPEED;
+
+    // Convert local move to world space based on yaw
+    const sinY = Math.sin(player.yaw), cosY = Math.cos(player.yaw);
+    const worldX = moveX * cosY - moveZ * sinY;
+    const worldZ = moveX * sinY + moveZ * cosY;
+
+    const nextPos = player.pos.clone();
+    nextPos.x += worldX * speed * dt;
+    nextPos.z += worldZ * speed * dt;
+
+    resolveCollisions(nextPos);
+    player.pos.x = nextPos.x;
+    player.pos.z = nextPos.z;
+
+    // Jump & gravity
+    const jumpPressed = isTouchDevice() ? jumpRequested : keys['Space'];
+    if (jumpPressed && player.onGround) {
+      player.velY = JUMP_SPEED;
+      player.onGround = false;
+    }
+    jumpRequested = false;
+
+    player.velY += GRAVITY * dt;
+    player.pos.y += player.velY * dt;
+    if (player.pos.y <= 0) {
+      player.pos.y = 0;
+      player.velY = 0;
+      player.onGround = true;
+    }
+
+    camera.position.set(player.pos.x, player.pos.y + EYE_HEIGHT, player.pos.z);
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = player.yaw;
+    camera.rotation.x = player.pitch;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+/* ===========================================================================
+   NOTE FOR FUTURE EXTENSION:
+   - This first-floor scene is self-contained. To extend upward, add a second
+     THREE.Group for floor 2 aligned to the stair opening at (stairX, WALL_H).
+   - collisionBoxes array can be reused/extended for interactive doors by
+     converting static door pivots into dynamic-open colliders.
+   =========================================================================== */
 </script>
 </body>
 </html>
